@@ -25,6 +25,7 @@ FTPSession::~FTPSession()
 
 void FTPSession::connect(const std::string &hostName, int port)
 {
+    this->hostName = hostName;
     //连接并登录服务器
     QFuture<ConnectToServerRes> future = QtConcurrent::run(
                 [&]() { return connectToServer(controlSock,hostName,std::to_string(port)); });

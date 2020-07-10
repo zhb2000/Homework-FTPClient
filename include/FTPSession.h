@@ -65,6 +65,8 @@ public:
      */
     void close();
 
+    std::string getHostName() { return hostName; }
+
 signals:
 
     /**
@@ -115,6 +117,7 @@ signals:
 private:
     SOCKET controlSock;
     bool isConnectToServer;
+    std::string hostName;
 };
 
 }//namespace ftpclient

@@ -193,7 +193,7 @@ UploadToServerRes uploadFileToServer(SOCKET dataSock,
                            std::regex(R"(150.*)")))
     {
         errorMsg = std::string(recvBuffer.get(), iResult);
-        return UploadToServerRes::FAILED;
+        return UploadToServerRes::FAILED_WITH_MSG;
     }
 
     //开始上传文件

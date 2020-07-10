@@ -87,7 +87,7 @@ putServerIntoPasvMode(SOCKET controlSock, int &port, std::string &errorMsg);
 enum class UploadToServerRes
 {
     SUCCEEDED,
-    FAILED,
+    FAILED_WITH_MSG,
     SEND_FAILED,
     RECV_FAILED,
     READ_FILE_ERROR

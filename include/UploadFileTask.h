@@ -18,16 +18,25 @@ public:
 
 signals:
     void uploadStarted();
-    void uploadFinished();
+    /**
+     * @brief 上传成功
+     */
+    void uploadSucceeded();
+    /**
+     * @brief 上传失败
+     */
     void uploadFailed();
+    void uploadFailedWithMsg(std::string msg);
 
-    void putPasvFailed(std::string errorMsg);
 
 private:
+    void dataConnect(int port);
+    void startUploading();
+
     FTPSession &session;
     std::string remoteFileName;
     std::ifstream &ifs;
-
+    SOCKET dataSock;
 };
 
 }//namespace ftpclient
