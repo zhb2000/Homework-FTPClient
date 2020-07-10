@@ -30,16 +30,6 @@ enum class ConnectToServerRes
 ConnectToServerRes
 connectToServer(SOCKET &sock,const std::string &hostName, const std::string &port);
 
-/**
- * @brief 设置阻塞式send和recv的超时时间
- * @author zhb
- * @param sock 被设置的socket
- * @param sendTimeout 阻塞式send的超时时间(ms)
- * @param recvTimeout 阻塞式recv的超时时间(ms)
- * @return 设置是否成功
- */
-bool setSendRecvTimeout(SOCKET sock, int sendTimeout, int recvTimeout);
-
 enum class LoginToServerRes
 {
     //登录成功

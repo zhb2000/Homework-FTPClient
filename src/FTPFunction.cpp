@@ -10,6 +10,31 @@
 using utils::ScopeGuard;
 using std::unique_ptr;
 
+namespace
+{
+/**
+ * @brief 设置阻塞式send和recv的超时时间
+ * @author zhb
+ * @param sock 被设置的socket
+ * @param sendTimeout 阻塞式send的超时时间(ms)
+ * @param recvTimeout 阻塞式recv的超时时间(ms)
+ * @return 设置是否成功
+ */
+bool setSendRecvTimeout(SOCKET sock, int sendTimeout, int recvTimeout)
+{
+    int iResult;
+    iResult = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO,
+                         (const char*)&sendTimeout, sizeof(sendTimeout));
+    if (iResult != 0)
+        return false;
+    iResult = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+                         (const char*)&recvTimeout, sizeof(recvTimeout));
+    if(iResult != 0)
+        return false;
+    return true;
+}
+}
+
 namespace ftpclient
 {
 
@@ -63,20 +88,6 @@ connectToServer(SOCKET &sock,const std::string &hostName, const std::string &por
         guardCleanWSA.dismiss();
         return ConnectToServerRes::SUCCEEDED;
     }
-}
-
-bool setSendRecvTimeout(SOCKET sock, int sendTimeout, int recvTimeout)
-{
-    int iResult;
-    iResult = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO,
-                         (const char*)&sendTimeout, sizeof(sendTimeout));
-    if (iResult != 0)
-        return false;
-    iResult = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
-                         (const char*)&recvTimeout, sizeof(recvTimeout));
-    if(iResult != 0)
-        return false;
-    return true;
 }
 
 LoginToServerRes
