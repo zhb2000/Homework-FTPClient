@@ -16,8 +16,9 @@ namespace utils
          * @param onExit 清理函数
          */
         explicit ScopeGuard(std::function<void()> onExit)
-            : onExit_(onExit),
-              dismissed_(false) { }
+            : onExit_(onExit), dismissed_(false)
+        {
+        }
 
         ~ScopeGuard()
         {
@@ -29,14 +30,11 @@ namespace utils
          * @brief 取消清理
          * @param setDismissed 是否取消清理
          */
-        void dismiss(bool setDismissed=true)
-        {
-            dismissed_ = setDismissed;
-        }
+        void dismiss(bool setDismissed = true) { dismissed_ = setDismissed; }
 
         //禁止复制
-        ScopeGuard(ScopeGuard const&) = delete;
-        ScopeGuard& operator=(ScopeGuard const&) = delete;
+        ScopeGuard(ScopeGuard const &) = delete;
+        ScopeGuard &operator=(ScopeGuard const &) = delete;
 
     private:
         //清理函数
@@ -44,6 +42,6 @@ namespace utils
         //是否取消清理
         bool dismissed_;
     };
-}//namespace utils
+} // namespace utils
 
 #endif // SCOPEGUARD_H
