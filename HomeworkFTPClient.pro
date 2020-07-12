@@ -24,7 +24,8 @@ SOURCES += \
     src/main.cpp \
     src/mainwindow.cpp \
     src/FTPSession.cpp \
-    src/FTPFunction.cpp
+    src/FTPFunction.cpp \
+    src/zhbtest.cpp
 
 HEADERS += \
     include/MyUtils.h \

@@ -147,6 +147,7 @@ namespace ftpclient
     }
 
     PutPasvModeRes putServerIntoPasvMode(SOCKET controlSock, int &port,
+                                         std::string &hostname,
                                          std::string &errorMsg)
     {
         const int sendBufLen = 1024;
@@ -176,10 +177,9 @@ namespace ftpclient
             return PutPasvModeRes::FAILED;
         }
 
-        int p1, p2;
-        std::tie(p1, p2) =
-            utils::getPortFromStr(std::string(recvBuffer.get(), iResult));
-        port = p1 * 256 + p2;
+        std::tie(hostname, port) =
+            utils::getIPAndPortForPSAV(std::string(recvBuffer.get(), iResult));
+
         return PutPasvModeRes::SUCCEEDED;
     }
 

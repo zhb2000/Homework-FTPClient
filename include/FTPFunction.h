@@ -69,11 +69,13 @@ namespace ftpclient
      * @brief 让服务器进入被动模式
      * @author zhb
      * @param controlSock 控制连接
+     * @param hostname 出口参数，数据连接的主机名（IPv4地址）
      * @param port 出口参数，数据连接的端口号
      * @param errorMsg 出口参数，来自服务器的错误信息
      * @return 结果状态码
      */
     PutPasvModeRes putServerIntoPasvMode(SOCKET controlSock, int &port,
+                                         std::string &hostname,
                                          std::string &errorMsg);
 
     enum class UploadToServerRes

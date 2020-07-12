@@ -7,7 +7,12 @@
 namespace utils
 {
 
-    std::pair<int, int> getPortFromStr(const std::string &msg);
+    /**
+     * @brief 从"227 Entering passive mode (h1,h2,h3,h4,p1,p2)"中提取IP和端口
+     * @param msg 服务器返回的信息
+     * @return (IP, port)
+     */
+    std::pair<std::string, int> getIPAndPortForPSAV(const std::string &msg);
 
 } // namespace utils
 

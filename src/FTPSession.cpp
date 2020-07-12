@@ -56,7 +56,7 @@ namespace ftpclient
         unique_ptr<char[]> recvBuffer(new char[bufferlen]);
         QFuture<int> recvRes = QtConcurrent::run([&]() {
             return recv(controlSock, recvBuffer.get(), bufferlen, 0);
-        });
+        }); // TODO(zhb) recv
         while (!future.isFinished())
             QApplication::processEvents();
         if (recvRes.result() > 0)
@@ -93,7 +93,7 @@ namespace ftpclient
         if (res == LoginToServerRes::SUCCEEDED)
             emit loginSucceeded();
         else if (res == LoginToServerRes::LOGIN_FAILED)
-            emit loginFailed(std::move(errorMsg));
+            emit loginFailedWithMsg(std::move(errorMsg));
         else if (res == LoginToServerRes::SEND_FAILED)
             emit sendFailed();
         else if (res == LoginToServerRes::RECV_FAILED)
@@ -102,17 +102,19 @@ namespace ftpclient
 
     void FTPSession::getPasvDataPort()
     {
+        std::string dataHostname;
         int port;
         std::string errorMsg;
         QFuture<PutPasvModeRes> future = QtConcurrent::run([&]() {
-            return putServerIntoPasvMode(controlSock, port, errorMsg);
+            return putServerIntoPasvMode(controlSock, port, dataHostname,
+                                         errorMsg);
         });
         while (!future.isFinished())
             QApplication::processEvents();
         if (future.result() == PutPasvModeRes::SUCCEEDED)
-            emit putPasvSucceeded(port);
+            emit putPasvSucceeded(std::move(dataHostname), port);
         else if (future.result() == PutPasvModeRes::FAILED)
-            emit putPasvFailed(std::move(errorMsg));
+            emit putPasvFailedWithMsg(std::move(errorMsg));
         else if (future.result() == PutPasvModeRes::SEND_FAILED)
             emit sendFailed();
         else if (future.result() == PutPasvModeRes::RECV_FAILED)
