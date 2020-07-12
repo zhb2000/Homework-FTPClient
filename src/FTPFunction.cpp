@@ -1,6 +1,7 @@
 #include "../include/FTPFunction.h"
 #include "../include/MyUtils.h"
 #include "../include/ScopeGuard.h"
+#include <QtDebug>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -98,9 +99,8 @@ namespace ftpclient
                                    std::string &errorMsg)
     {
         const int sendBufLen = 1024;
-        const int recvBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
+        std::string recvMsg;
 
         int iResult;
         //命令 "USER username\r\n"
@@ -112,14 +112,13 @@ namespace ftpclient
             return LoginToServerRes::SEND_FAILED;
         //客户端接收服务器的响应码和信息
         //正常为"331 User name okay, need password."
-        iResult = recv(controlSock, recvBuffer.get(), recvBufLen, 0);
-        if (iResult == SOCKET_ERROR)
+        iResult = utils::recv_all(controlSock, recvMsg);
+        if (iResult <= 0)
             return LoginToServerRes::RECV_FAILED;
         //检查返回码是否为331
-        if (!std::regex_search(recvBuffer.get(), recvBuffer.get() + iResult,
-                               std::regex(R"(331.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(331.*)")))
         {
-            errorMsg = std::string(recvBuffer.get(), iResult);
+            errorMsg = recvMsg;
             return LoginToServerRes::LOGIN_FAILED;
         }
 
@@ -132,14 +131,13 @@ namespace ftpclient
             return LoginToServerRes::SEND_FAILED;
         //客户端接收服务器的响应码和信息
         //正常为"230 User logged in, proceed."
-        iResult = recv(controlSock, recvBuffer.get(), recvBufLen, 0);
+        iResult = utils::recv_all(controlSock, recvMsg);
         if (iResult <= 0)
             return LoginToServerRes::RECV_FAILED;
         //检查返回码是否为230
-        if (!std::regex_search(recvBuffer.get(), recvBuffer.get() + iResult,
-                               std::regex(R"(230.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(230.*)")))
         {
-            errorMsg = std::string(recvBuffer.get(), iResult);
+            errorMsg = recvMsg;
             return LoginToServerRes::LOGIN_FAILED;
         }
 
@@ -151,9 +149,8 @@ namespace ftpclient
                                          std::string &errorMsg)
     {
         const int sendBufLen = 1024;
-        const int recvBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
+        std::string recvMsg;
 
         int iResult;
         //命令"PASV\r\n"
@@ -165,20 +162,19 @@ namespace ftpclient
             return PutPasvModeRes::SEND_FAILED;
         //客户端接收服务器的响应码和新开的端口号
         //正常为"227 Entering passive mode (h1,h2,h3,h4,p1,p2)"
-        iResult = recv(controlSock, recvBuffer.get(), recvBufLen, 0);
+        iResult = utils::recv_all(controlSock, recvMsg);
         if (iResult <= 0)
             return PutPasvModeRes::RECV_FAILED;
         //检查返回码是否为227
         if (!std::regex_search(
-                recvBuffer.get(), recvBuffer.get() + iResult,
+                recvMsg,
                 std::regex(R"(227.*\(\d+,\d+,\d+,\d+,\d+,\d+\)[.\r\n]*)")))
         {
-            errorMsg = std::string(recvBuffer.get(), iResult);
+            errorMsg = recvMsg;
             return PutPasvModeRes::FAILED;
         }
 
-        std::tie(hostname, port) =
-            utils::getIPAndPortForPSAV(std::string(recvBuffer.get(), iResult));
+        std::tie(hostname, port) = utils::getIPAndPortForPSAV(recvMsg);
 
         return PutPasvModeRes::SUCCEEDED;
     }
@@ -189,9 +185,8 @@ namespace ftpclient
                                          std::string &errorMsg)
     {
         const int sendBufLen = 1024;
-        const int recvBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
+        std::string recvMsg;
 
         int iResult;
         //命令"STOR filename\r\n"
@@ -204,16 +199,17 @@ namespace ftpclient
 
         //客户端接收服务器的响应码和信息
         //正常为"150 Opening data connection."
-        iResult = recv(dataSock, recvBuffer.get(), recvBufLen, 0);
+        iResult = utils::recv_all(dataSock, recvMsg);
         if (iResult <= 0)
             return UploadToServerRes::RECV_FAILED;
         //检查返回码是否为150
-        if (!std::regex_search(recvBuffer.get(), recvBuffer.get() + iResult,
-                               std::regex(R"(150.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(150.*)")))
         {
-            errorMsg = std::string(recvBuffer.get(), iResult);
+            errorMsg = recvMsg;
             return UploadToServerRes::FAILED_WITH_MSG;
         }
+        // TODO(zhb) debug
+        qDebug() << recvMsg.data();
 
         //开始上传文件
         while (true)

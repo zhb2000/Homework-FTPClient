@@ -1,5 +1,6 @@
 #include "../include/FTPSession.h"
 #include "../include/FTPFunction.h"
+#include "../include/MyUtils.h"
 #include <QApplication>
 #include <QFuture>
 #include <QtConcurrent/QtConcurrent>
@@ -52,29 +53,19 @@ namespace ftpclient
             isConnectToServer = true;
 
         //接收服务器端的一些欢迎信息
-        const int bufferlen = 512;
-        unique_ptr<char[]> recvBuffer(new char[bufferlen]);
-        QFuture<int> recvRes = QtConcurrent::run([&]() {
-            return recv(controlSock, recvBuffer.get(), bufferlen, 0);
-        }); // TODO(zhb) recv
+        std::string recvMsg;
+        QFuture<int> recvRes = QtConcurrent::run(
+            [&]() { return utils::recv_all(controlSock, recvMsg); });
         while (!future.isFinished())
             QApplication::processEvents();
         if (recvRes.result() > 0)
         {
-            int len = recvRes.result();
             //成功
-            emit connectionToServerSucceeded(
-                std::string(recvBuffer.get(), len));
-        }
-        else if (recvRes.result() == 0)
-        {
-            //服务器已关闭连接
-            emit unableToConnectToServer();
-            isConnectToServer = false;
+            emit connectionToServerSucceeded(recvMsg);
         }
         else
         {
-            // recv失败
+            // recv()失败
             emit recvFailed();
             isConnectToServer = false;
         }

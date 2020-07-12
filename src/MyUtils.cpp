@@ -1,5 +1,8 @@
 #include "../include/MyUtils.h"
+#include <memory>
 #include <regex>
+
+using std::unique_ptr;
 
 namespace utils
 {
@@ -10,10 +13,10 @@ namespace utils
         std::sregex_iterator iter(msg.begin(), msg.end(), e);
 
         std::string h1, h2, h3, h4;
-        h1 = std::stoi((*iter)[1].str());
-        h2 = std::stoi((*iter)[2].str());
-        h3 = std::stoi((*iter)[3].str());
-        h4 = std::stoi((*iter)[4].str());
+        h1 = (*iter)[1].str();
+        h2 = (*iter)[2].str();
+        h3 = (*iter)[3].str();
+        h4 = (*iter)[4].str();
         std::string hostname = h1 + "." + h2 + "." + h3 + "." + h4;
 
         int p1, p2;
@@ -22,6 +25,32 @@ namespace utils
         int port = p1 * 256 + p2;
 
         return {hostname, port};
+    }
+
+    int recv_all(SOCKET sock, std::string &recvMsg)
+    {
+        const int maxlen = 1024;
+        unique_ptr<char[]> buf(new char[maxlen]);
+        recvMsg.clear();
+        bool lessThanZero = false;
+        int iResult;
+        while (true)
+        {
+            iResult = recv(sock, buf.get(), maxlen, 0);
+            if (iResult > 0)
+                recvMsg += std::string(buf.get(), iResult);
+            else if (iResult == 0)
+                break;
+            else if (iResult < 0)
+            {
+                lessThanZero = true;
+                break;
+            }
+        }
+        if (lessThanZero && recvMsg.length() == 0)
+            return -1;
+        else
+            return int(recvMsg.length());
     }
 
 } // namespace utils

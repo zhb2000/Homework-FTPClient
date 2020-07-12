@@ -3,6 +3,7 @@
 
 #include <string>
 #include <utility>
+#include <winsock2.h>
 
 namespace utils
 {
@@ -13,6 +14,10 @@ namespace utils
      * @return (IP, port)
      */
     std::pair<std::string, int> getIPAndPortForPSAV(const std::string &msg);
+
+    // int recv_all(SOCKET sock, char *buf, int maxlen);
+
+    int recv_all(SOCKET sock, std::string &recvMsg);
 
 } // namespace utils
 
