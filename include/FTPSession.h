@@ -48,7 +48,8 @@ namespace ftpclient
         void login(const std::string &userName, const std::string &password);
 
         /**
-         * @brief 让服务器切换到被动模式，通过信号获取数据连接端口号
+         * @brief 让服务器切换到被动模式（PASV或EPSV），调用方通过信号获取
+         * 数据连接的IP地址和端口号
          * @author zhb
          *
          * 异步函数，运行结束后会发射以下信号之一：
@@ -57,7 +58,7 @@ namespace ftpclient
          * - sendFailed
          * - recvFailed
          */
-        void getPasvDataPort();
+        void usePassiveMode();
 
         /**
          * @brief 关闭控制端口的连接
@@ -106,16 +107,16 @@ namespace ftpclient
         void loginFailedWithMsg(std::string errorMsg);
 
         /**
-         * @brief 信号：切换 PASV 模式成功
+         * @brief 信号：切换被动模式成功
          * @param dataHostname 数据连接主机名
          * @param port 数据连接端口号
          */
-        void putPasvSucceeded(std::string dataHostname, int port);
+        void putPassiveSucceeded(std::string dataHostname, int port);
         /**
-         * @brief 信号：切换 PASV 模式失败
+         * @brief 信号：切换被动模式失败
          * @param errorMsg 来自服务器的错误消息
          */
-        void putPasvFailedWithMsg(std::string errorMsg);
+        void putPassiveFailedWithMsg(std::string errorMsg);
 
     private:
         SOCKET controlSock;

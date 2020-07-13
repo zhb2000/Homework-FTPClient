@@ -61,11 +61,11 @@ void connectFTPSessionSignals(const TestCase &test,
     });
 
     QObject::connect(
-        &se, &FTPSession::putPasvSucceeded, [](string dataHost, int port) {
+        &se, &FTPSession::putPassiveSucceeded, [](string dataHost, int port) {
             qDebug("PASV succeeded");
             qDebug() << "host: " << dataHost.data() << "; port: " << port;
         });
-    QObject::connect(&se, &FTPSession::putPasvFailedWithMsg,
+    QObject::connect(&se, &FTPSession::putPassiveFailedWithMsg,
                      [](string errorMsg) {
                          qDebug("PASV failed");
                          qDebug() << "msg: " << errorMsg.data();
@@ -93,7 +93,7 @@ void connectUploadSignals(UploadFileTask *task)
 
 void test_z()
 {
-    const auto &test = testcases[0];
+    const auto &test = testcases[1];
     string remoteFileName = "file.txt";
     string localFileName = "C:/Users/zhb/Desktop/ftpclient/file.txt";
     std::ifstream ifs(localFileName, std::ios_base::binary);

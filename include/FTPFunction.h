@@ -63,13 +63,14 @@ namespace ftpclient
     enum class PutPasvModeRes
     {
         SUCCEEDED,
+        HAVE_TO_USE_EPSV,
         FAILED_WITH_MSG,
         SEND_FAILED,
         RECV_FAILED
     };
 
     /**
-     * @brief 让服务器进入被动模式
+     * @brief 让服务器进入PASV模式
      * @author zhb
      * @param controlSock 控制连接
      * @param hostname 出口参数，数据连接的主机名（IPv4地址）
@@ -79,6 +80,25 @@ namespace ftpclient
      */
     PutPasvModeRes putServerIntoPasvMode(SOCKET controlSock, int &port,
                                          std::string &hostname,
+                                         std::string &errorMsg);
+
+    enum class PutEpsvModeRes
+    {
+        SUCCEEDED,
+        FAILED_WITH_MSG,
+        SEND_FAILED,
+        RECV_FAILED
+    };
+
+    /**
+     * @brief 让服务器进入EPSV模式
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param port 出口参数，数据连接的端口号
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    PutEpsvModeRes putServerIntoEpsvMode(SOCKET controlSock, int &port,
                                          std::string &errorMsg);
 
     enum class RequestToUpRes

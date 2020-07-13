@@ -177,23 +177,64 @@ namespace ftpclient
                        (int)strlen(sendBuffer.get()), 0);
         if (iResult == SOCKET_ERROR)
             return PutPasvModeRes::SEND_FAILED;
+
         //客户端接收服务器的响应码和新开的端口号
         //正常为"227 Entering passive mode (h1,h2,h3,h4,p1,p2)"
         iResult = utils::recv_all(controlSock, recvMsg);
         if (iResult <= 0)
             return PutPasvModeRes::RECV_FAILED;
+
         //检查返回码是否为227
         if (!std::regex_search(
-                recvMsg,
-                std::regex(R"(227.*\(\d+,\d+,\d+,\d+,\d+,\d+\)[.\r\n]*)")))
+                recvMsg, std::regex(R"(227.*\(\d+,\d+,\d+,\d+,\d+,\d+\))")))
         {
-            errorMsg = recvMsg;
-            return PutPasvModeRes::FAILED_WITH_MSG;
+            //返回码为500，必须要用EPSV模式
+            if (std::regex_search(recvMsg, std::regex(R"(500.*)")))
+                return PutPasvModeRes::HAVE_TO_USE_EPSV;
+            else
+            {
+                errorMsg = recvMsg;
+                return PutPasvModeRes::FAILED_WITH_MSG;
+            }
         }
 
         std::tie(hostname, port) = utils::getIPAndPortForPSAV(recvMsg);
 
         return PutPasvModeRes::SUCCEEDED;
+    }
+
+    PutEpsvModeRes putServerIntoEpsvMode(SOCKET controlSock, int &port,
+                                         std::string &errorMsg)
+    {
+        const int sendBufLen = 1024;
+        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
+        std::string recvMsg;
+
+        int iResult;
+        //命令"EPSV\r\n"
+        sprintf(sendBuffer.get(), "EPSV\r\n");
+        //客户端告诉服务器用被动模式
+        iResult = send(controlSock, sendBuffer.get(),
+                       (int)strlen(sendBuffer.get()), 0);
+        if (iResult == SOCKET_ERROR)
+            return PutEpsvModeRes::SEND_FAILED;
+
+        //客户端接收服务器的响应码和新开的端口号
+        //正常为"229 Entering Extended Passive Mode (|||port|)"
+        iResult = utils::recv_all(controlSock, recvMsg);
+        if (iResult <= 0)
+            return PutEpsvModeRes::RECV_FAILED;
+
+        //检查返回码是否为229
+        if (!std::regex_search(recvMsg, std::regex(R"(229.*\(\|\|\|\d+\|\))")))
+        {
+            errorMsg = recvMsg;
+            return PutEpsvModeRes::FAILED_WITH_MSG;
+        }
+
+        port = utils::getPortForEPSV(recvMsg);
+
+        return PutEpsvModeRes::SUCCEEDED;
     }
 
     RequestToUpRes requestToUploadToServer(SOCKET dataSock,

@@ -27,6 +27,15 @@ namespace utils
         return {hostname, port};
     }
 
+    int getPortForEPSV(const std::string &msg)
+    {
+        std::regex e(R"(\(\|\|\|(\d+)\|\))");
+        std::sregex_iterator iter(msg.begin(), msg.end(), e);
+
+        int port = std::stoi((*iter)[1]);
+        return port;
+    }
+
     int recv_all(SOCKET sock, std::string &recvMsg)
     {
         const int maxlen = 1024;

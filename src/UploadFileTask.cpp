@@ -13,7 +13,7 @@ namespace ftpclient
     {
         //在构造函数中连接信号槽，以便对切换 PASV 模式的各种结果做出响应
         //切换 PASV 模式失败时，发射 uploadFailedWithMsg 信号
-        QObject::connect(&session, &FTPSession::putPasvFailedWithMsg,
+        QObject::connect(&session, &FTPSession::putPassiveFailedWithMsg,
                          [&](std::string errorMsg) {
                              emit uploadFailedWithMsg(std::move(errorMsg));
                          });
@@ -24,13 +24,13 @@ namespace ftpclient
         QObject::connect(&session, &FTPSession::recvFailed,
                          [&]() { emit uploadFailed(); });
         //切换 PASV 模式成功时，执行成员函数 dataConnect()，与服务器建立数据连接
-        QObject::connect(&session, &FTPSession::putPasvSucceeded, this,
+        QObject::connect(&session, &FTPSession::putPassiveSucceeded, this,
                          &UploadFileTask::dataConnect);
     }
 
     UploadFileTask::~UploadFileTask() { closesocket(dataSock); }
 
-    void UploadFileTask::start() { session.getPasvDataPort(); }
+    void UploadFileTask::start() { session.usePassiveMode(); }
 
     void UploadFileTask::stop() { closesocket(dataSock); }
 

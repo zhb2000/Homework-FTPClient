@@ -99,33 +99,55 @@ namespace ftpclient
             emit recvFailed();
     }
 
-    void FTPSession::getPasvDataPort()
+    void FTPSession::usePassiveMode()
     {
-        // TODO(zhb) 500 You are connected using IPv6. PASV is only for IPv4.
-        // You have to use the EPSV command instead.
-
         std::string dataHostname;
         int port;
         std::string errorMsg;
-        QFuture<PutPasvModeRes> future = QtConcurrent::run([&]() {
+        QFuture<PutPasvModeRes> future1 = QtConcurrent::run([&]() {
             return putServerIntoPasvMode(controlSock, port, dataHostname,
                                          errorMsg);
         });
-        while (!future.isFinished())
+        while (!future1.isFinished())
+        {
             QApplication::processEvents();
-        if (future.result() == PutPasvModeRes::SUCCEEDED)
-            emit putPasvSucceeded(std::move(dataHostname), port);
-        else if (future.result() == PutPasvModeRes::FAILED_WITH_MSG)
-            emit putPasvFailedWithMsg(std::move(errorMsg));
-        else if (future.result() == PutPasvModeRes::SEND_FAILED)
+        }
+
+        auto res1 = future1.result();
+        if (res1 == PutPasvModeRes::SUCCEEDED)
+            emit putPassiveSucceeded(std::move(dataHostname), port);
+        else if (res1 == PutPasvModeRes::FAILED_WITH_MSG)
+            emit putPassiveFailedWithMsg(std::move(errorMsg));
+        else if (res1 == PutPasvModeRes::SEND_FAILED)
             emit sendFailed();
-        else if (future.result() == PutPasvModeRes::RECV_FAILED)
+        else if (res1 == PutPasvModeRes::RECV_FAILED)
             emit recvFailed();
+        else // res1 == HAVE_TO_USE_EPSV
+        {
+            QFuture<PutEpsvModeRes> future2 = QtConcurrent::run([&]() {
+                return putServerIntoEpsvMode(controlSock, port, errorMsg);
+            });
+            while (!future2.isFinished())
+            {
+                QApplication::processEvents();
+            }
+
+            auto res2 = future2.result();
+            if (res2 == PutEpsvModeRes::SUCCEEDED)
+                emit putPassiveSucceeded(this->getHostName(), port);
+            else if (res2 == PutEpsvModeRes::FAILED_WITH_MSG)
+                emit emit putPassiveFailedWithMsg(std::move(errorMsg));
+            else if (res2 == PutEpsvModeRes::SEND_FAILED)
+                emit sendFailed();
+            else // res2 == PutEpsvModeRes::RECV_FAILED
+                emit recvFailed();
+        }
     }
 
     void FTPSession::close()
     {
         // TODO(zhb) 尚未完成
+        closesocket(controlSock);
     }
 
 } // namespace ftpclient
