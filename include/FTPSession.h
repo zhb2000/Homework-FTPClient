@@ -15,6 +15,9 @@ namespace ftpclient
     public:
         FTPSession();
         ~FTPSession();
+        //禁止复制
+        FTPSession(const FTPSession &) = delete;
+        FTPSession &operator=(const FTPSession &) = delete;
 
         /**
          * @brief 创建socket、连接服务器

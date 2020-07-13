@@ -14,25 +14,38 @@ using utils::ScopeGuard;
 namespace
 {
     /**
-     * @brief 设置阻塞式send和recv的超时时间
+     * @brief 设置阻塞式send()的超时时间
      * @author zhb
      * @param sock 被设置的socket
-     * @param sendTimeout 阻塞式send的超时时间(ms)
-     * @param recvTimeout 阻塞式recv的超时时间(ms)
+     * @param timeout 超时时间(ms)
      * @return 设置是否成功
      */
-    bool setSendRecvTimeout(SOCKET sock, int sendTimeout, int recvTimeout)
+    bool setSendTimeout(SOCKET sock, int timeout)
     {
         int iResult;
         iResult = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO,
-                             (const char *)&sendTimeout, sizeof(sendTimeout));
+                             (const char *)&timeout, sizeof(timeout));
         if (iResult != 0)
             return false;
+        else
+            return true;
+    }
+
+    /**
+     * @brief 设置阻塞式recv()的超时时间
+     * @param sock 被设置的socket
+     * @param timeout 超时时间(ms)
+     * @return 设置是否成功
+     */
+    bool setRecvTimeout(SOCKET sock, int timeout)
+    {
+        int iResult;
         iResult = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
-                             (const char *)&recvTimeout, sizeof(recvTimeout));
+                             (const char *)&timeout, sizeof(timeout));
         if (iResult != 0)
             return false;
-        return true;
+        else
+            return true;
     }
 } // namespace
 
@@ -41,7 +54,8 @@ namespace ftpclient
 
     ConnectToServerRes connectToServer(SOCKET &sock,
                                        const std::string &hostName,
-                                       const std::string &port)
+                                       const std::string &port, int sendTimeout,
+                                       int recvTimeout)
     {
         WSADATA wsaData;
         int iResult;
@@ -87,7 +101,10 @@ namespace ftpclient
             return ConnectToServerRes::UNABLE_TO_CONNECT_TO_SERVER;
         else
         {
-            setSendRecvTimeout(sock, 5000, 5000);
+            if (sendTimeout >= 0)
+                setSendTimeout(sock, sendTimeout);
+            if (recvTimeout >= 0)
+                setRecvTimeout(sock, recvTimeout);
             guardCleanWSA.dismiss();
             return ConnectToServerRes::SUCCEEDED;
         }
@@ -119,7 +136,7 @@ namespace ftpclient
         if (!std::regex_search(recvMsg, std::regex(R"(331.*)")))
         {
             errorMsg = recvMsg;
-            return LoginToServerRes::LOGIN_FAILED;
+            return LoginToServerRes::FAILED_WITH_MSG;
         }
 
         // 命令 "PASS password\r\n"
@@ -138,7 +155,7 @@ namespace ftpclient
         if (!std::regex_search(recvMsg, std::regex(R"(230.*)")))
         {
             errorMsg = recvMsg;
-            return LoginToServerRes::LOGIN_FAILED;
+            return LoginToServerRes::FAILED_WITH_MSG;
         }
 
         return LoginToServerRes::SUCCEEDED;
@@ -171,7 +188,7 @@ namespace ftpclient
                 std::regex(R"(227.*\(\d+,\d+,\d+,\d+,\d+,\d+\)[.\r\n]*)")))
         {
             errorMsg = recvMsg;
-            return PutPasvModeRes::FAILED;
+            return PutPasvModeRes::FAILED_WITH_MSG;
         }
 
         std::tie(hostname, port) = utils::getIPAndPortForPSAV(recvMsg);
@@ -179,10 +196,9 @@ namespace ftpclient
         return PutPasvModeRes::SUCCEEDED;
     }
 
-    UploadToServerRes uploadFileToServer(SOCKET dataSock,
-                                         const std::string &remoteFileName,
-                                         std::ifstream &ifs,
-                                         std::string &errorMsg)
+    RequestToUpRes requestToUploadToServer(SOCKET dataSock,
+                                           const std::string &remoteFileName,
+                                           std::string &errorMsg)
     {
         const int sendBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
@@ -191,26 +207,35 @@ namespace ftpclient
         int iResult;
         //命令"STOR filename\r\n"
         sprintf(sendBuffer.get(), "STOR %s\r\n", remoteFileName.c_str());
-        //客户端发送命令上传文件到服务器端
+        //客户端发送命令请求上传文件到服务器端
         iResult =
             send(dataSock, sendBuffer.get(), (int)strlen(sendBuffer.get()), 0);
         if (iResult == SOCKET_ERROR)
-            return UploadToServerRes::SEND_FAILED;
+            return RequestToUpRes::SEND_FAILED;
 
         //客户端接收服务器的响应码和信息
         //正常为"150 Opening data connection."
         iResult = utils::recv_all(dataSock, recvMsg);
         if (iResult <= 0)
-            return UploadToServerRes::RECV_FAILED;
+            return RequestToUpRes::RECV_FAILED;
         //检查返回码是否为150
         if (!std::regex_search(recvMsg, std::regex(R"(150.*)")))
         {
             errorMsg = recvMsg;
-            return UploadToServerRes::FAILED_WITH_MSG;
+            return RequestToUpRes::FAILED_WITH_MSG;
         }
-        // TODO(zhb) debug
-        qDebug() << recvMsg.data();
 
+        return RequestToUpRes::SUCCEEDED;
+    }
+
+    UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
+                                             std::ifstream &ifs)
+    {
+        const int sendBufLen = 1024;
+        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
+        std::string recvMsg;
+
+        int iResult;
         //开始上传文件
         while (true)
         {
@@ -218,15 +243,15 @@ namespace ftpclient
             ifs.read(sendBuffer.get(), sendBufLen);
             iResult = send(dataSock, sendBuffer.get(), ifs.gcount(), 0);
             if (iResult == SOCKET_ERROR)
-                return UploadToServerRes::SEND_FAILED;
+                return UploadFileDataRes::SEND_FAILED;
             if (ifs.rdstate() == std::ios_base::goodbit)
                 continue; //无错误
             else if (ifs.rdstate() == std::ios_base::eofbit)
                 break; //关联的输出序列已抵达文件尾
             else
-                return UploadToServerRes::READ_FILE_ERROR;
+                return UploadFileDataRes::READ_FILE_ERROR;
         }
-        return UploadToServerRes::SUCCEEDED;
+        return UploadFileDataRes::SUCCEEDED;
     }
 
 } // namespace ftpclient

@@ -1,7 +1,7 @@
 #include "../include/mainwindow.h"
 #include <QApplication>
 
-void zhbtest();
+void test_z();
 
 int main(int argc, char *argv[])
 {
@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     MainWindow w;
     w.show();
 
-    zhbtest();
+    test_z();
 
     return a.exec();
 }

@@ -28,6 +28,12 @@ namespace ftpclient
          */
         UploadFileTask(FTPSession &session, std::string remoteFileName,
                        std::ifstream &ifs);
+
+        ~UploadFileTask();
+        //禁止复制
+        UploadFileTask(const UploadFileTask &) = delete;
+        UploadFileTask &operator=(const UploadFileTask &) = delete;
+
         /**
          * @brief 开始上传任务
          * @author zhb
@@ -40,9 +46,15 @@ namespace ftpclient
          */
         void uploadStarted();
         /**
+         * @brief 信号：上传百分比
+         * @param percentage 百分比
+         */
+        void uploadPercentage(int percentage);
+        /**
          * @brief 信号：上传成功
          */
         void uploadSucceeded();
+
         /**
          * @brief 信号：上传失败
          */
@@ -53,10 +65,9 @@ namespace ftpclient
          */
         void uploadFailedWithMsg(std::string msg);
         /**
-         * @brief TODO(zhb) 信号：上传百分比
-         * @param percentage 百分比
+         * @brief 信号：读取文件错误
          */
-        void uploadPercentage(int percentage);
+        void readFileError();
 
     private:
         /**
@@ -66,11 +77,23 @@ namespace ftpclient
          * @param port 端口号
          *
          * 异步函数
-         * - 若数据连接建立成功，发射 uploadStarted 信号，随后执行
-         * UploadFileTask::startUploading()，向服务器发送文件内容
+         * - 若数据连接建立成功，发射 uploadStarted 信号，随后转到执行
+         * uploadRequest()，向服务器发 STOR 命令请求上传
          * - 若数据连接建立失败，发射 uploadFailed 信号
          */
         void dataConnect(const std::string &hostname, int port);
+
+        /**
+         * @brief 向服务器发 STOR 命令请求上传
+         * @author zhb
+         *
+         * 异步函数
+         * - 若服务器同意上传，发射 startUploading 信号，随后转到执行
+         * uploadFileData()，向服务器发送文件内容
+         * - 若服务器拒绝上传，发射 uploadFailedWithMsg(msg) 信号
+         * - 其他网络错误，发射 uploadFailed 信号
+         */
+        void uploadRequest();
 
         /**
          * @brief 向服务器发送文件内容
@@ -78,10 +101,10 @@ namespace ftpclient
          *
          * 异步函数，运行结束后会发射以下信号之一
          * - uploadSucceeded
-         * - uploadFailedWithMsg
          * - uploadFailed
+         * - readFileError
          */
-        void startUploading();
+        void uploadFileData();
 
         FTPSession &session;
         std::string remoteFileName;

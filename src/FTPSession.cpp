@@ -83,7 +83,7 @@ namespace ftpclient
         auto res = future.result();
         if (res == LoginToServerRes::SUCCEEDED)
             emit loginSucceeded();
-        else if (res == LoginToServerRes::LOGIN_FAILED)
+        else if (res == LoginToServerRes::FAILED_WITH_MSG)
             emit loginFailedWithMsg(std::move(errorMsg));
         else if (res == LoginToServerRes::SEND_FAILED)
             emit sendFailed();
@@ -93,6 +93,9 @@ namespace ftpclient
 
     void FTPSession::getPasvDataPort()
     {
+        // TODO(zhb) 500 You are connected using IPv6. PASV is only for IPv4.
+        // You have to use the EPSV command instead.
+
         std::string dataHostname;
         int port;
         std::string errorMsg;
@@ -104,7 +107,7 @@ namespace ftpclient
             QApplication::processEvents();
         if (future.result() == PutPasvModeRes::SUCCEEDED)
             emit putPasvSucceeded(std::move(dataHostname), port);
-        else if (future.result() == PutPasvModeRes::FAILED)
+        else if (future.result() == PutPasvModeRes::FAILED_WITH_MSG)
             emit putPasvFailedWithMsg(std::move(errorMsg));
         else if (future.result() == PutPasvModeRes::SEND_FAILED)
             emit sendFailed();

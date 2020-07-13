@@ -28,36 +28,62 @@ namespace ftpclient
                          &UploadFileTask::dataConnect);
     }
 
+    UploadFileTask::~UploadFileTask()
+    {
+        // TODO(zhb) UploadFileTask 的析构函数
+    }
+
     void UploadFileTask::start() { session.getPasvDataPort(); }
 
     void UploadFileTask::dataConnect(const std::string &hostname, int port)
     {
         //尝试与服务器建立连接
-        QFuture<ConnectToServerRes> connectRes = QtConcurrent::run([&]() {
+        QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
             return connectToServer(dataSock, hostname, std::to_string(port));
         });
-        while (!connectRes.isFinished())
+        while (!future.isFinished())
         {
             QApplication::processEvents();
         }
 
         //数据连接建立失败，发射 uploadFailed 信号
-        if (connectRes.result() != ConnectToServerRes::SUCCEEDED)
+        if (future.result() != ConnectToServerRes::SUCCEEDED)
             emit uploadFailed();
-        //数据连接建立成功，发射 uploadStarted 信号
-        //随后向服务器发送文件内容
+        //数据连接建立成功，向服务器发 STOR 命令请求上传
         else
-        {
-            emit uploadStarted();
-            startUploading();
-        }
+            uploadRequest();
     }
 
-    void UploadFileTask::startUploading()
+    void UploadFileTask::uploadRequest()
     {
         std::string errorMsg;
-        QFuture<UploadToServerRes> future = QtConcurrent::run([&]() {
-            return uploadFileToServer(dataSock, remoteFileName, ifs, errorMsg);
+        QFuture<RequestToUpRes> future = QtConcurrent::run([&]() {
+            return requestToUploadToServer(dataSock, remoteFileName, errorMsg);
+        });
+        while (!future.isFinished())
+        {
+            QApplication::processEvents();
+        }
+
+        auto res = future.result();
+        if (res == RequestToUpRes::SUCCEEDED)
+        {
+            //服务器同意上传文件
+            emit uploadStarted(); //发射 uploadStarted 信号
+            uploadFileData();     //开始传输文件内容
+        }
+        else if (res == RequestToUpRes::FAILED_WITH_MSG)
+            emit uploadFailedWithMsg(std::move(errorMsg));
+        else // res == SEND_FAILED || res == RECV_FAILED
+            emit uploadFailed();
+    }
+
+    void UploadFileTask::uploadFileData()
+    {
+        std::string errorMsg;
+        QFuture<UploadFileDataRes> future = QtConcurrent::run([&]() {
+            return uploadFileDataToServer(dataSock, remoteFileName, ifs,
+                                          errorMsg);
         });
         while (!future.isFinished())
         {
@@ -66,12 +92,12 @@ namespace ftpclient
         }
 
         auto res = future.result();
-        if (res == UploadToServerRes::SUCCEEDED)
+        if (res == UploadFileDataRes::SUCCEEDED)
             emit uploadSucceeded();
-        else if (res == UploadToServerRes::FAILED_WITH_MSG)
-            emit uploadFailedWithMsg(std::move(errorMsg));
-        else
+        else if (res == UploadFileDataRes::SEND_FAILED)
             emit uploadFailed();
+        else // res == READ_FILE_ERROR
+            emit readFileError();
     }
 
 } // namespace ftpclient

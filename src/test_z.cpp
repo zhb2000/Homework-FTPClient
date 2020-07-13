@@ -89,7 +89,7 @@ void connectUploadSignals(UploadFileTask *task)
                      });
 }
 
-void zhbtest()
+void test_z()
 {
     const auto &test = testcases[0];
     string remoteFileName = "file.txt";
