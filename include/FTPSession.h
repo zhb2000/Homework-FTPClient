@@ -26,12 +26,12 @@ namespace ftpclient
          * @param port 端口号
          *
          * 异步函数，运行结束后会发射以下信号之一：
-         * - connectionToServerSucceeded
-         * - createSocketFailed
+         * - connectionToServerSucceeded(welcomeMsg)
+         * - createSocketFailed(reason)
          * - unableToConnectToServer
          * - recvFailed
          */
-        void connect(const std::string &hostName, int port = 21);
+        void connect(const std::string &hostname, int port = 21);
 
         /**
          * @brief 登录FTP服务器
@@ -41,7 +41,7 @@ namespace ftpclient
          *
          * 异步函数，运行结束后会发射以下信号之一：
          * - loginSucceeded
-         * - loginFailedWithMsg
+         * - loginFailedWithMsg(msg)
          * - sendFailed
          * - recvFailed
          */
@@ -52,8 +52,8 @@ namespace ftpclient
          * @author zhb
          *
          * 异步函数，运行结束后会发射以下信号之一：
-         * - putPasvSucceeded
-         * - putPasvFailedWithMsg
+         * - putPasvSucceeded(dataHost, port)
+         * - putPasvFailedWithMsg(msg)
          * - sendFailed
          * - recvFailed
          */
@@ -67,7 +67,7 @@ namespace ftpclient
          */
         void close();
 
-        std::string getHostName() { return hostName; }
+        std::string getHostName() const { return hostname; }
 
     signals:
 
@@ -78,9 +78,9 @@ namespace ftpclient
         void connectionToServerSucceeded(std::string welcomeMsg);
         /**
          * @brief 信号：创建socket失败
-         * @param result 失败原因
+         * @param reason 失败原因
          */
-        void createSocketFailed(ConnectToServerRes result);
+        void createSocketFailed(ConnectToServerRes reason);
         /**
          * @brief 信号：无法连接到服务器
          */
@@ -120,7 +120,10 @@ namespace ftpclient
     private:
         SOCKET controlSock;
         bool isConnectToServer;
-        std::string hostName;
+        std::string hostname;
+
+        static const int SOCKET_SEND_TIMEOUT = 3000;
+        static const int SOCKET_RECV_TIMEOUT = 3000;
     };
 
 } // namespace ftpclient

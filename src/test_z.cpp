@@ -83,6 +83,8 @@ void connectUploadSignals(UploadFileTask *task)
                          qDebug("uploadFailedWithMsg");
                          qDebug() << errorMsg.data();
                      });
+    QObject::connect(task, &UploadFileTask::uploadFailed,
+                     []() { qDebug("uploadFailed"); });
     QObject::connect(task, &UploadFileTask::uploadPercentage,
                      [](int percentage) {
                          qDebug() << "percentage: " << percentage << "%";

@@ -26,13 +26,18 @@ namespace ftpclient
 
     void FTPSession::connect(const std::string &hostName, int port)
     {
-        this->hostName = hostName;
+        this->hostname = hostName;
         //连接并登录服务器
         QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
-            return connectToServer(controlSock, hostName, std::to_string(port));
+            return connectToServer(controlSock, hostName, std::to_string(port),
+                                   FTPSession::SOCKET_SEND_TIMEOUT,
+                                   FTPSession::SOCKET_RECV_TIMEOUT);
         });
         while (!future.isFinished())
+        {
             QApplication::processEvents();
+        }
+
         if (future.result() != ConnectToServerRes::SUCCEEDED)
         {
             if (future.result() ==
@@ -57,7 +62,10 @@ namespace ftpclient
         QFuture<int> recvRes = QtConcurrent::run(
             [&]() { return utils::recv_all(controlSock, recvMsg); });
         while (!future.isFinished())
+        {
             QApplication::processEvents();
+        }
+
         if (recvRes.result() > 0)
         {
             //成功

@@ -28,18 +28,19 @@ namespace ftpclient
                          &UploadFileTask::dataConnect);
     }
 
-    UploadFileTask::~UploadFileTask()
-    {
-        // TODO(zhb) UploadFileTask 的析构函数
-    }
+    UploadFileTask::~UploadFileTask() { closesocket(dataSock); }
 
     void UploadFileTask::start() { session.getPasvDataPort(); }
+
+    void UploadFileTask::stop() { closesocket(dataSock); }
 
     void UploadFileTask::dataConnect(const std::string &hostname, int port)
     {
         //尝试与服务器建立连接
         QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
-            return connectToServer(dataSock, hostname, std::to_string(port));
+            return connectToServer(dataSock, hostname, std::to_string(port),
+                                   UploadFileTask::SOCKET_SEND_TIMEOUT,
+                                   UploadFileTask::SOCKET_RECV_TIMEOUT);
         });
         while (!future.isFinished())
         {
@@ -51,7 +52,7 @@ namespace ftpclient
             emit uploadFailed();
         //数据连接建立成功，向服务器发 STOR 命令请求上传
         else
-            uploadRequest();
+            this->uploadRequest();
     }
 
     void UploadFileTask::uploadRequest()
@@ -69,8 +70,8 @@ namespace ftpclient
         if (res == RequestToUpRes::SUCCEEDED)
         {
             //服务器同意上传文件
-            emit uploadStarted(); //发射 uploadStarted 信号
-            uploadFileData();     //开始传输文件内容
+            emit uploadStarted();   //发射 uploadStarted 信号
+            this->uploadFileData(); //开始传输文件内容
         }
         else if (res == RequestToUpRes::FAILED_WITH_MSG)
             emit uploadFailedWithMsg(std::move(errorMsg));
@@ -81,10 +82,8 @@ namespace ftpclient
     void UploadFileTask::uploadFileData()
     {
         std::string errorMsg;
-        QFuture<UploadFileDataRes> future = QtConcurrent::run([&]() {
-            return uploadFileDataToServer(dataSock, remoteFileName, ifs,
-                                          errorMsg);
-        });
+        QFuture<UploadFileDataRes> future = QtConcurrent::run(
+            [&]() { return uploadFileDataToServer(dataSock, ifs); });
         while (!future.isFinished())
         {
             QApplication::processEvents();

@@ -31,9 +31,8 @@ namespace ftpclient
      */
     ConnectToServerRes connectToServer(SOCKET &sock,
                                        const std::string &hostName,
-                                       const std::string &port,
-                                       int sendTimeout = -1,
-                                       int recvTimeout = -1);
+                                       const std::string &port, int sendTimeout,
+                                       int recvTimeout);
 
     enum class LoginToServerRes
     {
@@ -119,9 +118,7 @@ namespace ftpclient
      * 目前还没法暂停或停止上传
      */
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
-                                             const std::string &remoteFileName,
-                                             std::ifstream &ifs,
-                                             std::string &errorMsg);
+                                             std::ifstream &ifs);
 
 } // namespace ftpclient
 

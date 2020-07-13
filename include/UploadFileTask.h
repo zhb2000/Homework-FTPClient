@@ -11,9 +11,9 @@ namespace ftpclient
 
     /**
      * @brief 上传任务类，一个FTP Session 可以对应多个上传任务
-     * @author zhb
      *
-     * 调用成员函数 start() 后，应通过信号了解上传任务的状态
+     * 调用 start() 开始任务
+     * 调用 stop() 停止任务
      */
     class UploadFileTask : public QObject
     {
@@ -39,6 +39,12 @@ namespace ftpclient
          * @author zhb
          */
         void start();
+
+        /**
+         * @brief 停止上传
+         * @author zhb
+         */
+        void stop();
 
     signals:
         /**
@@ -77,8 +83,8 @@ namespace ftpclient
          * @param port 端口号
          *
          * 异步函数
-         * - 若数据连接建立成功，发射 uploadStarted 信号，随后转到执行
-         * uploadRequest()，向服务器发 STOR 命令请求上传
+         * - 若数据连接建立成功，转到执行 uploadRequest()，向服务器发 STOR
+         * 命令请求上传
          * - 若数据连接建立失败，发射 uploadFailed 信号
          */
         void dataConnect(const std::string &hostname, int port);
@@ -88,7 +94,7 @@ namespace ftpclient
          * @author zhb
          *
          * 异步函数
-         * - 若服务器同意上传，发射 startUploading 信号，随后转到执行
+         * - 若服务器同意上传，发射 uploadStarted 信号，随后转到执行
          * uploadFileData()，向服务器发送文件内容
          * - 若服务器拒绝上传，发射 uploadFailedWithMsg(msg) 信号
          * - 其他网络错误，发射 uploadFailed 信号
@@ -110,6 +116,9 @@ namespace ftpclient
         std::string remoteFileName;
         std::ifstream &ifs;
         SOCKET dataSock;
+
+        static const int SOCKET_SEND_TIMEOUT = 3000;
+        static const int SOCKET_RECV_TIMEOUT = 3000;
     };
 
 } // namespace ftpclient
