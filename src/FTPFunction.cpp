@@ -110,132 +110,72 @@ namespace ftpclient
         }
     }
 
-    LoginToServerRes loginToServer(SOCKET controlSock,
-                                   const std::string &username,
-                                   const std::string &password,
-                                   std::string &errorMsg)
+    CmdToServerRet loginToServer(SOCKET controlSock,
+                                 const std::string &username,
+                                 const std::string &password,
+                                 std::string &errorMsg)
     {
-        const int sendBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        std::string recvMsg;
-
-        int iResult;
         //命令 "USER username\r\n"
-        sprintf(sendBuffer.get(), "USER %s\r\n", username.c_str());
-        //客户端发送用户名到服务器端
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return LoginToServerRes::SEND_FAILED;
-        //客户端接收服务器的响应码和信息
+        std::string userCmd = "USER " + username + "\r\n";
+        std::string recvMsg;
         //正常为"331 User name okay, need password."
-        iResult = utils::recv_all(controlSock, recvMsg);
-        if (iResult <= 0)
-            return LoginToServerRes::RECV_FAILED;
         //检查返回码是否为331
-        if (!std::regex_search(recvMsg, std::regex(R"(331\s.*)")))
+        std::regex userRegex(R"(331\s.*)");
+        auto ret = cmdToServer(controlSock, userCmd, userRegex, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+        {
+            // 命令 "PASS password\r\n"
+            std::string passCmd = "PASS " + password + "\r\n";
+            //正常为"230 User logged in, proceed."
+            //检查返回码是否为230
+            std::regex passRegex(R"(^230\s.*)");
+            ret = cmdToServer(controlSock, passCmd, passRegex, recvMsg);
+            if (ret == CmdToServerRet::FAILED_WITH_MSG)
+                errorMsg = std::move(recvMsg);
+            return ret;
+        }
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
         {
             errorMsg = std::move(recvMsg);
-            return LoginToServerRes::FAILED_WITH_MSG;
+            return ret;
         }
-
-        // 命令 "PASS password\r\n"
-        sprintf(sendBuffer.get(), "PASS %s\r\n", password.c_str());
-        //客户端发送密码到服务器端
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return LoginToServerRes::SEND_FAILED;
-        //客户端接收服务器的响应码和信息
-        //正常为"230 User logged in, proceed."
-        iResult = utils::recv_all(controlSock, recvMsg);
-        if (iResult <= 0)
-            return LoginToServerRes::RECV_FAILED;
-        //检查返回码是否为230
-        if (!std::regex_search(recvMsg, std::regex(R"(^230\s.*)")))
-        {
-            errorMsg = std::move(recvMsg);
-            return LoginToServerRes::FAILED_WITH_MSG;
-        }
-
-        return LoginToServerRes::SUCCEEDED;
+        else
+            return ret;
     }
 
-    PutPasvModeRes putServerIntoPasvMode(SOCKET controlSock, int &port,
+    CmdToServerRet putServerIntoPasvMode(SOCKET controlSock, int &port,
                                          std::string &hostname,
                                          std::string &errorMsg)
     {
-        const int sendBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        std::string recvMsg;
-
-        int iResult;
         //命令"PASV\r\n"
-        sprintf(sendBuffer.get(), "PASV\r\n");
-        //客户端告诉服务器用被动模式
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return PutPasvModeRes::SEND_FAILED;
-
-        //客户端接收服务器的响应码和新开的端口号
+        std::string sendCmd = "PASV\r\n";
+        std::string recvMsg;
         //正常为"227 Entering passive mode (h1,h2,h3,h4,p1,p2)"
-        iResult = utils::recv_all(controlSock, recvMsg);
-        if (iResult <= 0)
-            return PutPasvModeRes::RECV_FAILED;
-
         //检查返回码是否为227
-        if (!std::regex_search(
-                recvMsg, std::regex(R"(^227\s.*\(\d+,\d+,\d+,\d+,\d+,\d+\))")))
-        {
-            //返回码为500，必须要用EPSV模式
-            if (std::regex_search(recvMsg, std::regex(R"(^500.*)")))
-                return PutPasvModeRes::HAVE_TO_USE_EPSV;
-            else
-            {
-                errorMsg = std::move(recvMsg);
-                return PutPasvModeRes::FAILED_WITH_MSG;
-            }
-        }
-
-        std::tie(hostname, port) = utils::getIPAndPortForPSAV(recvMsg);
-
-        return PutPasvModeRes::SUCCEEDED;
+        std::regex e(R"(^227\s.*\(\d+,\d+,\d+,\d+,\d+,\d+\))");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            std::tie(hostname, port) = utils::getIPAndPortForPSAV(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
     }
 
-    PutEpsvModeRes putServerIntoEpsvMode(SOCKET controlSock, int &port,
+    CmdToServerRet putServerIntoEpsvMode(SOCKET controlSock, int &port,
                                          std::string &errorMsg)
     {
-        const int sendBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        std::string recvMsg;
-
-        int iResult;
         //命令"EPSV\r\n"
-        sprintf(sendBuffer.get(), "EPSV\r\n");
-        //客户端告诉服务器用被动模式
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return PutEpsvModeRes::SEND_FAILED;
-
-        //客户端接收服务器的响应码和新开的端口号
+        std::string sendCmd = "EPSV\r\n";
+        std::string recvMsg;
         //正常为"229 Entering Extended Passive Mode (|||port|)"
-        iResult = utils::recv_all(controlSock, recvMsg);
-        if (iResult <= 0)
-            return PutEpsvModeRes::RECV_FAILED;
-
         //检查返回码是否为229
-        if (!std::regex_search(recvMsg,
-                               std::regex(R"(^229\s.*\(\|\|\|\d+\|\))")))
-        {
+        std::regex e(R"(^229\s.*\(\|\|\|\d+\|\))");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            port = utils::getPortForEPSV(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
             errorMsg = std::move(recvMsg);
-            return PutEpsvModeRes::FAILED_WITH_MSG;
-        }
-
-        port = utils::getPortForEPSV(recvMsg);
-
-        return PutEpsvModeRes::SUCCEEDED;
+        return ret;
     }
 
     RequestToUpRes requestToUploadToServer(SOCKET controlSock,
@@ -293,33 +233,40 @@ namespace ftpclient
         return UploadFileDataRes::SUCCEEDED;
     }
 
-    GetFileSizeRet getFilesizeOnServer(SOCKET controlSock,
+    CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
                                        const std::string &filename,
                                        int &filesize, std::string &errorMsg)
     {
-        const int sendBufLen = 512;
-        unique_ptr<char[]> sendBuf(new char[sendBufLen]);
-        std::string recvMsg;
-        int iResult;
         //命令"SIZE filename\r\n"
-        sprintf(sendBuf.get(), "SIZE %s\r\n", filename.c_str());
-        //客户端发送命令从服务器端得到下载文件的大小
-        iResult =
-            send(controlSock, sendBuf.get(), int(strlen(sendBuf.get())), 0);
+        std::string sendCmd = "SIZE " + filename + "\r\n";
+        //检查返回码是否为"213 size"
+        std::regex e(R"(^213\s+\d+)");
+        std::string recvMsg;
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            filesize = utils::getSizeFromMsg(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
+                               const std::regex &matchRegex,
+                               std::string &recvMsg)
+    {
+        int iResult;
+        //向服务器发送命令
+        iResult = send(controlSock, sendCmd.c_str(), sendCmd.length(), 0);
         if (iResult == SOCKET_ERROR)
-            return GetFileSizeRet::SEND_FAILED;
-        //客户端接收服务器的响应码和信息，正常为"213 size"
+            return CmdToServerRet::SEND_FAILED;
+        //接收服务器响应码和信息
         iResult = utils::recv_all(controlSock, recvMsg);
         if (iResult <= 0)
-            return GetFileSizeRet::RECV_FAILED;
-        //检查返回码是否为"213 size"
-        if (!std::regex_search(recvMsg, std::regex(R"(^213\s+\d+)")))
-        {
-            errorMsg = std::move(recvMsg);
-            return GetFileSizeRet::FAILED_WITH_MSG;
-        }
-        filesize = utils::getSizeFromMsg(recvMsg);
-        return GetFileSizeRet::SUCCEEDED;
+            return CmdToServerRet::RECV_FAILED;
+        //检查响应码和信息是否符合要求
+        if (!std::regex_search(recvMsg, matchRegex))
+            return CmdToServerRet::FAILED_WITH_MSG;
+        return CmdToServerRet::SUCCEEDED;
     }
 
 } // namespace ftpclient

@@ -73,7 +73,7 @@ namespace ftpclient
         std::string errorMsg;
 
         //先尝试 PASV 模式
-        QFuture<PutPasvModeRes> pasvFuture = QtConcurrent::run([&]() {
+        QFuture<CmdToServerRet> pasvFuture = QtConcurrent::run([&]() {
             return putServerIntoPasvMode(session.getControlSock(), port,
                                          dataHostname, errorMsg);
         });
@@ -81,31 +81,32 @@ namespace ftpclient
             QApplication::processEvents();
 
         auto pasvRet = pasvFuture.result();
-        if (pasvRet == PutPasvModeRes::SUCCEEDED)
+        if (pasvRet == CmdToServerRet::SUCCEEDED)
             this->dataConnect(dataHostname, port);
-        else if (pasvRet == PutPasvModeRes::HAVE_TO_USE_EPSV)
+        else if (pasvRet == CmdToServerRet::FAILED_WITH_MSG)
         {
-            //必须使用 EPSV 模式
-            QFuture<PutEpsvModeRes> epsvFuture = QtConcurrent::run([&]() {
-                return putServerIntoEpsvMode(session.getControlSock(), port,
-                                             errorMsg);
-            });
-            while (!epsvFuture.isFinished())
-                QApplication::processEvents();
-
-            auto epsvRes = epsvFuture.result();
-            if (epsvRes == PutEpsvModeRes::SUCCEEDED)
+            //返回码为500，必须要用EPSV模式
+            if (std::regex_search(errorMsg, std::regex(R"(^500.*)")))
             {
+                QFuture<CmdToServerRet> epsvFuture = QtConcurrent::run([&]() {
+                    return putServerIntoEpsvMode(session.getControlSock(), port,
+                                                 errorMsg);
+                });
+                while (!epsvFuture.isFinished())
+                    QApplication::processEvents();
+
+                auto epsvRes = epsvFuture.result();
                 // EPSV模式下，数据连接的主机名与控制连接的相同
-                this->dataConnect(session.getHostName(), port);
+                if (epsvRes == CmdToServerRet::SUCCEEDED)
+                    this->dataConnect(session.getHostName(), port);
+                else if (epsvRes == CmdToServerRet::FAILED_WITH_MSG)
+                    emit uploadFailedWithMsg(std::move(errorMsg));
+                else // SEND_FAILED or RECV_FAILED
+                    emit uploadFailed();
             }
-            else if (epsvRes == PutEpsvModeRes::FAILED_WITH_MSG)
+            else
                 emit uploadFailedWithMsg(std::move(errorMsg));
-            else // SEND_FAILED or RECV_FAILED
-                emit uploadFailed();
         }
-        else if (pasvRet == PutPasvModeRes::FAILED_WITH_MSG)
-            emit uploadFailedWithMsg(std::move(errorMsg));
         else // SEND_FAILED or RECV_FAILED
             emit uploadFailed();
     }

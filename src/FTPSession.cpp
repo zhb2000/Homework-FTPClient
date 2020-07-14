@@ -82,28 +82,21 @@ namespace ftpclient
                            const std::string &password)
     {
         std::string errorMsg;
-        QFuture<LoginToServerRes> future = QtConcurrent::run([&]() {
+        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
             return loginToServer(controlSock, username, password, errorMsg);
         });
         while (!future.isFinished())
             QApplication::processEvents();
+
         auto res = future.result();
-        if (res == LoginToServerRes::SUCCEEDED)
-        {
-            // TODO(zhb) "CWD /\r\n"
-            // unique_ptr<char[]> sendbuf(new char[100]);
-            // sprintf(sendbuf.get(), "CWD /\r\n");
-            // send(controlSock, sendbuf.get(), int(strlen(sendbuf.get())), 0);
-
+        if (res == CmdToServerRet::SUCCEEDED)
             emit loginSucceeded();
-        }
-
-        else if (res == LoginToServerRes::FAILED_WITH_MSG)
+        else if (res == CmdToServerRet::FAILED_WITH_MSG)
             emit loginFailedWithMsg(std::move(errorMsg));
         else
         {
             emit loginFailed();
-            if (res == LoginToServerRes::SEND_FAILED)
+            if (res == CmdToServerRet::SEND_FAILED)
                 emit sendFailed();
             else // RECV_FAILED
                 emit recvFailed();
@@ -114,7 +107,7 @@ namespace ftpclient
     {
         int filesize;
         std::string errorMsg;
-        QFuture<GetFileSizeRet> future = QtConcurrent::run([&]() {
+        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
             return getFilesizeOnServer(controlSock, filename, filesize,
                                        errorMsg);
         });
@@ -122,14 +115,14 @@ namespace ftpclient
             QApplication::processEvents();
 
         auto res = future.result();
-        if (res == GetFileSizeRet::SUCCEEDED)
+        if (res == CmdToServerRet::SUCCEEDED)
             emit getFilesizeSucceeded(filesize);
-        else if (res == GetFileSizeRet::FAILED_WITH_MSG)
+        else if (res == CmdToServerRet::FAILED_WITH_MSG)
             emit getFilesizeFailedWithMsg(std::move(errorMsg));
         else
         {
             emit getFilesizeFailed();
-            if (res == GetFileSizeRet::SEND_FAILED)
+            if (res == CmdToServerRet::SEND_FAILED)
                 emit sendFailed();
             else
                 emit recvFailed();

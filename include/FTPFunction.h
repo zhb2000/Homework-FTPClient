@@ -3,6 +3,7 @@
 
 #include <WinSock2.h>
 #include <fstream>
+#include <regex>
 #include <string>
 
 namespace ftpclient
@@ -34,17 +35,37 @@ namespace ftpclient
                                        const std::string &port, int sendTimeout,
                                        int recvTimeout);
 
-    enum class LoginToServerRes
+    enum class CmdToServerRet
     {
-        //登录成功
         SUCCEEDED,
-        //登录失败
         FAILED_WITH_MSG,
-        // send()失败
         SEND_FAILED,
-        // recv()失败
         RECV_FAILED
     };
+
+    /**
+     * @brief 向服务器发送命令并收取回复
+     * @param controlSock 控制连接
+     * @param sendCmd 命令，必须以"\r\n"结尾
+     * @param matchRegex 匹配服务器消息的正则
+     * @param recvMsg 出口参数，收到的消息
+     * @return 结果状态码
+     */
+    CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
+                               const std::regex &matchRegex,
+                               std::string &recvMsg);
+
+    //    enum class LoginToServerRes
+    //    {
+    //        //登录成功
+    //        SUCCEEDED,
+    //        //登录失败
+    //        FAILED_WITH_MSG,
+    //        // send()失败
+    //        SEND_FAILED,
+    //        // recv()失败
+    //        RECV_FAILED
+    //    };
 
     /**
      * @brief 连接到服务器并登录，该函数为阻塞式
@@ -55,19 +76,10 @@ namespace ftpclient
      * @param errorMsg 出口参数，来自服务器的错误信息
      * @return 结果状态码
      */
-    LoginToServerRes loginToServer(SOCKET controlSock,
-                                   const std::string &username,
-                                   const std::string &password,
-                                   std::string &errorMsg);
-
-    enum class PutPasvModeRes
-    {
-        SUCCEEDED,
-        HAVE_TO_USE_EPSV,
-        FAILED_WITH_MSG,
-        SEND_FAILED,
-        RECV_FAILED
-    };
+    CmdToServerRet loginToServer(SOCKET controlSock,
+                                 const std::string &username,
+                                 const std::string &password,
+                                 std::string &errorMsg);
 
     /**
      * @brief 让服务器进入PASV模式
@@ -78,17 +90,9 @@ namespace ftpclient
      * @param errorMsg 出口参数，来自服务器的错误信息
      * @return 结果状态码
      */
-    PutPasvModeRes putServerIntoPasvMode(SOCKET controlSock, int &port,
+    CmdToServerRet putServerIntoPasvMode(SOCKET controlSock, int &port,
                                          std::string &hostname,
                                          std::string &errorMsg);
-
-    enum class PutEpsvModeRes
-    {
-        SUCCEEDED,
-        FAILED_WITH_MSG,
-        SEND_FAILED,
-        RECV_FAILED
-    };
 
     /**
      * @brief 让服务器进入EPSV模式
@@ -98,7 +102,7 @@ namespace ftpclient
      * @param errorMsg 出口参数，来自服务器的错误信息
      * @return 结果状态码
      */
-    PutEpsvModeRes putServerIntoEpsvMode(SOCKET controlSock, int &port,
+    CmdToServerRet putServerIntoEpsvMode(SOCKET controlSock, int &port,
                                          std::string &errorMsg);
 
     enum class RequestToUpRes
@@ -140,23 +144,16 @@ namespace ftpclient
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs);
 
-    enum class GetFileSizeRet
-    {
-        SUCCEEDED,
-        FAILED_WITH_MSG,
-        SEND_FAILED,
-        RECV_FAILED
-    };
-
     /**
      * @brief 获取服务器上某个文件的大小
+     * @author zhb
      * @param controlSock 控制连接
      * @param filename 服务器上的文件名
      * @param filesize 出口参数，文件大小
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
-    GetFileSizeRet getFilesizeOnServer(SOCKET controlSock,
+    CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
                                        const std::string &filename,
                                        int &filesize, std::string &errorMsg);
 
