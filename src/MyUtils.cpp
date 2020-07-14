@@ -36,6 +36,15 @@ namespace utils
         return port;
     }
 
+    int getSizeFromMsg(const std::string &msg)
+    {
+        std::regex e(R"(^213\s+(\d+))");
+        std::sregex_iterator iter(msg.begin(), msg.end(), e);
+
+        int filesize = std::stoi((*iter)[1]);
+        return filesize;
+    }
+
     int recv_all(SOCKET sock, std::string &recvMsg)
     {
         const int maxlen = 1024;

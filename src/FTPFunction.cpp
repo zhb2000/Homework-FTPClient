@@ -53,7 +53,7 @@ namespace ftpclient
 {
 
     ConnectToServerRes connectToServer(SOCKET &sock,
-                                       const std::string &hostName,
+                                       const std::string &hostname,
                                        const std::string &port, int sendTimeout,
                                        int recvTimeout)
     {
@@ -73,7 +73,7 @@ namespace ftpclient
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_protocol = IPPROTO_TCP;
         //设定服务器地址和端口号
-        iResult = getaddrinfo(hostName.c_str(), port.c_str(), &hints, &result);
+        iResult = getaddrinfo(hostname.c_str(), port.c_str(), &hints, &result);
         if (iResult != 0)
             return ConnectToServerRes::getaddrinfo_FAILED;
         ScopeGuard guardFreeAddrinfo([=]() { freeaddrinfo(result); });
@@ -111,7 +111,7 @@ namespace ftpclient
     }
 
     LoginToServerRes loginToServer(SOCKET controlSock,
-                                   const std::string &userName,
+                                   const std::string &username,
                                    const std::string &password,
                                    std::string &errorMsg)
     {
@@ -121,7 +121,7 @@ namespace ftpclient
 
         int iResult;
         //命令 "USER username\r\n"
-        sprintf(sendBuffer.get(), "USER %s\r\n", userName.c_str());
+        sprintf(sendBuffer.get(), "USER %s\r\n", username.c_str());
         //客户端发送用户名到服务器端
         iResult = send(controlSock, sendBuffer.get(),
                        (int)strlen(sendBuffer.get()), 0);
@@ -133,7 +133,7 @@ namespace ftpclient
         if (iResult <= 0)
             return LoginToServerRes::RECV_FAILED;
         //检查返回码是否为331
-        if (!std::regex_search(recvMsg, std::regex(R"(331.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(331\s.*)")))
         {
             errorMsg = std::move(recvMsg);
             return LoginToServerRes::FAILED_WITH_MSG;
@@ -152,7 +152,7 @@ namespace ftpclient
         if (iResult <= 0)
             return LoginToServerRes::RECV_FAILED;
         //检查返回码是否为230
-        if (!std::regex_search(recvMsg, std::regex(R"(^230.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(^230\s.*)")))
         {
             errorMsg = std::move(recvMsg);
             return LoginToServerRes::FAILED_WITH_MSG;
@@ -186,7 +186,7 @@ namespace ftpclient
 
         //检查返回码是否为227
         if (!std::regex_search(
-                recvMsg, std::regex(R"(^227.*\(\d+,\d+,\d+,\d+,\d+,\d+\))")))
+                recvMsg, std::regex(R"(^227\s.*\(\d+,\d+,\d+,\d+,\d+,\d+\))")))
         {
             //返回码为500，必须要用EPSV模式
             if (std::regex_search(recvMsg, std::regex(R"(^500.*)")))
@@ -226,7 +226,8 @@ namespace ftpclient
             return PutEpsvModeRes::RECV_FAILED;
 
         //检查返回码是否为229
-        if (!std::regex_search(recvMsg, std::regex(R"(^229.*\(\|\|\|\d+\|\))")))
+        if (!std::regex_search(recvMsg,
+                               std::regex(R"(^229\s.*\(\|\|\|\d+\|\))")))
         {
             errorMsg = std::move(recvMsg);
             return PutEpsvModeRes::FAILED_WITH_MSG;
@@ -238,7 +239,7 @@ namespace ftpclient
     }
 
     RequestToUpRes requestToUploadToServer(SOCKET controlSock,
-                                           const std::string &remoteFileName,
+                                           const std::string &remoteFilename,
                                            std::string &errorMsg)
     {
         const int sendBufLen = 1024;
@@ -247,7 +248,7 @@ namespace ftpclient
 
         int iResult;
         //命令"STOR filename\r\n"
-        sprintf(sendBuffer.get(), "STOR %s\r\n", remoteFileName.c_str());
+        sprintf(sendBuffer.get(), "STOR %s\r\n", remoteFilename.c_str());
         //客户端发送命令请求上传文件到服务器端
         iResult = send(controlSock, sendBuffer.get(),
                        (int)strlen(sendBuffer.get()), 0);
@@ -260,7 +261,7 @@ namespace ftpclient
         if (iResult <= 0)
             return RequestToUpRes::RECV_FAILED;
         //检查返回码是否为150
-        if (!std::regex_search(recvMsg, std::regex(R"(^150.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(^150\s.*)")))
         {
             errorMsg = std::move(recvMsg);
             return RequestToUpRes::FAILED_WITH_MSG;
@@ -290,6 +291,35 @@ namespace ftpclient
         }
 
         return UploadFileDataRes::SUCCEEDED;
+    }
+
+    GetFileSizeRet getFilesizeOnServer(SOCKET controlSock,
+                                       const std::string &filename,
+                                       int &filesize, std::string &errorMsg)
+    {
+        const int sendBufLen = 512;
+        unique_ptr<char[]> sendBuf(new char[sendBufLen]);
+        std::string recvMsg;
+        int iResult;
+        //命令"SIZE filename\r\n"
+        sprintf(sendBuf.get(), "SIZE %s\r\n", filename.c_str());
+        //客户端发送命令从服务器端得到下载文件的大小
+        iResult =
+            send(controlSock, sendBuf.get(), int(strlen(sendBuf.get())), 0);
+        if (iResult == SOCKET_ERROR)
+            return GetFileSizeRet::SEND_FAILED;
+        //客户端接收服务器的响应码和信息，正常为"213 size"
+        iResult = utils::recv_all(controlSock, recvMsg);
+        if (iResult <= 0)
+            return GetFileSizeRet::RECV_FAILED;
+        //检查返回码是否为"213 size"
+        if (!std::regex_search(recvMsg, std::regex(R"(^213\s+\d+)")))
+        {
+            errorMsg = std::move(recvMsg);
+            return GetFileSizeRet::FAILED_WITH_MSG;
+        }
+        filesize = utils::getSizeFromMsg(recvMsg);
+        return GetFileSizeRet::SUCCEEDED;
     }
 
 } // namespace ftpclient

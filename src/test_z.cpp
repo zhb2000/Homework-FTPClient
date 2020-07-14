@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 
+//关闭代码
+#define DISABLED_CODE
+
 using namespace ftpclient;
 using std::string;
 using std::vector;
@@ -22,44 +25,6 @@ struct TestCase
 
 vector<TestCase> testcases = {{"data.argo.org.cn", "anonymous", "anonymous"},
                               {"localhost", "test01", "1111"}};
-
-void connectUploadSignals(UploadFileTask *task);
-
-void connectFTPSessionSignals(const TestCase &test,
-                              const string &remoteFileName, std::ifstream &ifs,
-                              FTPSession &se, UploadFileTask *&task)
-{
-    QObject::connect(&se, &FTPSession::connectionToServerSucceeded,
-                     [&](std::string welcomeMsg) {
-                         qDebug() << "welcomeMsg: " << welcomeMsg.c_str();
-                         // go to login
-                         se.login(test.username, test.password);
-                     });
-    QObject::connect(&se, &FTPSession::recvFailed,
-                     []() { qDebug() << "recvFailed"; });
-    QObject::connect(&se, &FTPSession::sendFailed,
-                     []() { qDebug() << "sendFailed"; });
-
-    QObject::connect(&se, &FTPSession::createSocketFailed,
-                     []() { qDebug() << "createSocketFailed"; });
-    QObject::connect(&se, &FTPSession::unableToConnectToServer,
-                     []() { qDebug() << "unableToConnectToServer"; });
-
-    QObject::connect(&se, &FTPSession::loginSucceeded, [&]() {
-        qDebug("login succeeded");
-        // go to upload file
-
-        task = new UploadFileTask(se, remoteFileName, ifs); // new a task
-        // connect signals for task
-        // must be done after new a task, not before
-        connectUploadSignals(task);
-        task->start();
-    });
-    QObject::connect(&se, &FTPSession::loginFailedWithMsg, [](string errorMsg) {
-        qDebug() << "loginFailedWithMsg";
-        qDebug() << "errorMsg: " << errorMsg.data();
-    });
-}
 
 void connectUploadSignals(UploadFileTask *task)
 {
@@ -90,11 +55,52 @@ void test_z()
     std::ifstream ifs(localFileName, std::ios_base::in | std::ios_base::binary);
 
     FTPSession *se = new FTPSession();
-    UploadFileTask *task = nullptr;
+    // UploadFileTask *task = nullptr;
 
-    // connect singnals and slots(for FTPSession)
-    connectFTPSessionSignals(test, remoteFileName, ifs, *se, task);
+    QObject::connect(se, &FTPSession::connectionToServerSucceeded,
+                     [&](std::string welcomeMsg) {
+                         qDebug() << "welcomeMsg: " << welcomeMsg.c_str();
+                         // 控制连接建立成功，下一步登录
+                         se->login(test.username, test.password);
+                     });
+    QObject::connect(se, &FTPSession::recvFailed,
+                     []() { qDebug() << "recvFailed"; });
+    QObject::connect(se, &FTPSession::sendFailed,
+                     []() { qDebug() << "sendFailed"; });
 
-    // test starts: connect -> login -> new a task and init -> upload
+    QObject::connect(se, &FTPSession::createSocketFailed,
+                     []() { qDebug() << "createSocketFailed"; });
+    QObject::connect(se, &FTPSession::unableToConnectToServer,
+                     []() { qDebug() << "unableToConnectToServer"; });
+
+    QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
+        qDebug("login succeeded");
+        //登录成功
+        //下一步获取文件大小
+        se->getFilesize("file.txt");
+
+#ifndef DISABLED_CODE
+        // 下一步上传文件
+        task = new UploadFileTask(se, remoteFileName, ifs); // new a task
+        // connect signals for task
+        // must be done after new a task, not before
+        connectUploadSignals(task);
+        task->start();
+#endif
+    });
+    QObject::connect(se, &FTPSession::loginFailedWithMsg, [](string errorMsg) {
+        qDebug() << "loginFailedWithMsg";
+        qDebug() << "errorMsg: " << errorMsg.data();
+    });
+    QObject::connect(se, &FTPSession::loginFailed,
+                     []() { qDebug("loginFailed"); });
+    QObject::connect(se, &FTPSession::getFilesizeSucceeded,
+                     [](int size) { qDebug() << "file size: " << size; });
+    QObject::connect(se, &FTPSession::getFilesizeFailedWithMsg, [](string msg) {
+        qDebug("getFilesizeFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+
+    // test starts
     se->connect(test.hostname);
 }

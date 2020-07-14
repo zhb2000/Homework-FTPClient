@@ -23,14 +23,14 @@ namespace ftpclient
      * @brief 创建socket并连接到服务器
      * @author zhb
      * @param sock 出口参数，创建的socket
-     * @param hostName 主机名
+     * @param hostname 主机名
      * @param port 端口号，形如"21"或"ftp"均可
      * @param sendTimeout 阻塞式send()超时时间(ms)，负数表示不设置
      * @param recvTimeout 阻塞式recv()超时时间(ms)，负数表示不设置
      * @return 结果状态码
      */
     ConnectToServerRes connectToServer(SOCKET &sock,
-                                       const std::string &hostName,
+                                       const std::string &hostname,
                                        const std::string &port, int sendTimeout,
                                        int recvTimeout);
 
@@ -50,13 +50,13 @@ namespace ftpclient
      * @brief 连接到服务器并登录，该函数为阻塞式
      * @author zhb
      * @param controlSock 控制连接
-     * @param userName 用户名
+     * @param username 用户名
      * @param password 密码
      * @param errorMsg 出口参数，来自服务器的错误信息
      * @return 结果状态码
      */
     LoginToServerRes loginToServer(SOCKET controlSock,
-                                   const std::string &userName,
+                                   const std::string &username,
                                    const std::string &password,
                                    std::string &errorMsg);
 
@@ -113,12 +113,12 @@ namespace ftpclient
      * @brief 向服务器发送 STOR 命令，请求上传文件
      * @author zhb
      * @param controlSock 控制连接
-     * @param remoteFileName 服务器文件名
+     * @param remoteFilename 服务器文件名
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
     RequestToUpRes requestToUploadToServer(SOCKET controlSock,
-                                           const std::string &remoteFileName,
+                                           const std::string &remoteFilename,
                                            std::string &errorMsg);
 
     enum class UploadFileDataRes
@@ -139,6 +139,26 @@ namespace ftpclient
      */
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs);
+
+    enum class GetFileSizeRet
+    {
+        SUCCEEDED,
+        FAILED_WITH_MSG,
+        SEND_FAILED,
+        RECV_FAILED
+    };
+
+    /**
+     * @brief 获取服务器上某个文件的大小
+     * @param controlSock 控制连接
+     * @param filename 服务器上的文件名
+     * @param filesize 出口参数，文件大小
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    GetFileSizeRet getFilesizeOnServer(SOCKET controlSock,
+                                       const std::string &filename,
+                                       int &filesize, std::string &errorMsg);
 
 } // namespace ftpclient
 

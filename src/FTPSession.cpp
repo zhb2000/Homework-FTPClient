@@ -12,10 +12,8 @@ using std::unique_ptr;
 namespace ftpclient
 {
 
-    FTPSession::FTPSession()
+    FTPSession::FTPSession() : controlSock(INVALID_SOCKET), isConnected(false)
     {
-        controlSock = INVALID_SOCKET;
-        isConnected = false;
     }
 
     FTPSession::~FTPSession()
@@ -25,12 +23,12 @@ namespace ftpclient
         WSACleanup();
     }
 
-    void FTPSession::connect(const std::string &hostName, int port)
+    void FTPSession::connect(const std::string &hostname, int port)
     {
-        this->hostname = hostName;
+        this->hostname = hostname;
         //连接并登录服务器
         QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
-            return connectToServer(controlSock, hostName, std::to_string(port),
+            return connectToServer(controlSock, hostname, std::to_string(port),
                                    FTPSession::SOCKET_SEND_TIMEOUT,
                                    FTPSession::SOCKET_RECV_TIMEOUT);
         });
@@ -80,12 +78,12 @@ namespace ftpclient
         }
     }
 
-    void FTPSession::login(const std::string &userName,
+    void FTPSession::login(const std::string &username,
                            const std::string &password)
     {
         std::string errorMsg;
         QFuture<LoginToServerRes> future = QtConcurrent::run([&]() {
-            return loginToServer(controlSock, userName, password, errorMsg);
+            return loginToServer(controlSock, username, password, errorMsg);
         });
         while (!future.isFinished())
             QApplication::processEvents();
@@ -102,10 +100,40 @@ namespace ftpclient
 
         else if (res == LoginToServerRes::FAILED_WITH_MSG)
             emit loginFailedWithMsg(std::move(errorMsg));
-        else if (res == LoginToServerRes::SEND_FAILED)
-            emit sendFailed();
-        else if (res == LoginToServerRes::RECV_FAILED)
-            emit recvFailed();
+        else
+        {
+            emit loginFailed();
+            if (res == LoginToServerRes::SEND_FAILED)
+                emit sendFailed();
+            else // RECV_FAILED
+                emit recvFailed();
+        }
+    }
+
+    void FTPSession::getFilesize(const std::string &filename)
+    {
+        int filesize;
+        std::string errorMsg;
+        QFuture<GetFileSizeRet> future = QtConcurrent::run([&]() {
+            return getFilesizeOnServer(controlSock, filename, filesize,
+                                       errorMsg);
+        });
+        while (!future.isFinished())
+            QApplication::processEvents();
+
+        auto res = future.result();
+        if (res == GetFileSizeRet::SUCCEEDED)
+            emit getFilesizeSucceeded(filesize);
+        else if (res == GetFileSizeRet::FAILED_WITH_MSG)
+            emit getFilesizeFailedWithMsg(std::move(errorMsg));
+        else
+        {
+            emit getFilesizeFailed();
+            if (res == GetFileSizeRet::SEND_FAILED)
+                emit sendFailed();
+            else
+                emit recvFailed();
+        }
     }
 
     void FTPSession::close()

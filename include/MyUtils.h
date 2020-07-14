@@ -25,7 +25,16 @@ namespace utils
     int getPortForEPSV(const std::string &msg);
 
     /**
+     * @brief 从"213 size"中提取文件大小
+     * @author zhb
+     * @param msg 服务器返回的消息
+     * @return 文件大小
+     */
+    int getSizeFromMsg(const std::string &msg);
+
+    /**
      * @brief 多次调用recv()直到收完所有数据
+     * @author zhb
      * @param sock
      * @param recvMsg 出口参数，收到的消息
      * @return 收到的字节数，负数表示出错

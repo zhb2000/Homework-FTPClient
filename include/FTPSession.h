@@ -41,11 +41,24 @@ namespace ftpclient
          *
          * 异步函数，运行结束后会发射以下信号之一：
          * - loginSucceeded
+         * - loginFailed
          * - loginFailedWithMsg(msg)
+         *
          * - sendFailed
          * - recvFailed
          */
-        void login(const std::string &userName, const std::string &password);
+        void login(const std::string &username, const std::string &password);
+
+        /**
+         * @brief 获取文件大小
+         * @param filename 服务器上的文件名
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - getFilesizeSucceeded
+         * - getFilesizeFailedWithMsg(msg)
+         * - getFilesizeFailed
+         */
+        void getFilesize(const std::string &filename);
 
         /**
          * @brief 关闭控制端口的连接
@@ -77,25 +90,42 @@ namespace ftpclient
         void unableToConnectToServer();
 
         /**
-         * @brief 信号：recv()失败
-         */
-        void recvFailed();
-        /**
-         * @brief 信号：send()失败
-         */
-        void sendFailed();
-
-        /**
          * @brief 信号：登录成功
          */
         void loginSucceeded();
         /**
-         * @brief 信号：登录失败
+         * @brief 信号：登录失败（带错误消息）
          * @param errorMsg 来自服务器的错误信息
          */
         void loginFailedWithMsg(std::string errorMsg);
+        /**
+         * @brief 信号：登录失败
+         */
+        void loginFailed();
+
+        /**
+         * @brief 信号：获取文件大小成功
+         * @param size 文件大小
+         */
+        void getFilesizeSucceeded(int size);
+        /**
+         * @brief 信号：获取文件大小失败（带错误消息）
+         * @param errorMsg 来自服务器的错误消息
+         */
+        void getFilesizeFailedWithMsg(std::string errorMsg);
+        /**
+         * @brief 信号：获取文件大小失败
+         */
+        void getFilesizeFailed();
+
+        // recvFailed 和 sendFailed 信号用于 Debug
+        //信号：recv()失败
+        void recvFailed();
+        //信号：send()失败
+        void sendFailed();
 
     private:
+        //若 socket 尚未创建，则 controlSock 为 INVALID_SOCKET
         SOCKET controlSock;
         //控制连接是否建立
         bool isConnected;
