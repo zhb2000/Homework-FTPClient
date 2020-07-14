@@ -59,17 +59,6 @@ void connectFTPSessionSignals(const TestCase &test,
         qDebug() << "loginFailedWithMsg";
         qDebug() << "errorMsg: " << errorMsg.data();
     });
-
-    QObject::connect(
-        &se, &FTPSession::putPassiveSucceeded, [](string dataHost, int port) {
-            qDebug("PASV succeeded");
-            qDebug() << "host: " << dataHost.data() << "; port: " << port;
-        });
-    QObject::connect(&se, &FTPSession::putPassiveFailedWithMsg,
-                     [](string errorMsg) {
-                         qDebug("PASV failed");
-                         qDebug() << "msg: " << errorMsg.data();
-                     });
 }
 
 void connectUploadSignals(UploadFileTask *task)
@@ -85,6 +74,8 @@ void connectUploadSignals(UploadFileTask *task)
                      });
     QObject::connect(task, &UploadFileTask::uploadFailed,
                      []() { qDebug("uploadFailed"); });
+    QObject::connect(task, &UploadFileTask::readFileError,
+                     []() { qDebug("readFileError"); });
     QObject::connect(task, &UploadFileTask::uploadPercentage,
                      [](int percentage) {
                          qDebug() << "percentage: " << percentage << "%";
@@ -96,14 +87,14 @@ void test_z()
     const auto &test = testcases[1];
     string remoteFileName = "file.txt";
     string localFileName = "C:/Users/zhb/Desktop/ftpclient/file.txt";
-    std::ifstream ifs(localFileName, std::ios_base::binary);
+    std::ifstream ifs(localFileName, std::ios_base::in | std::ios_base::binary);
 
-    FTPSession se;
+    FTPSession *se = new FTPSession();
     UploadFileTask *task = nullptr;
 
     // connect singnals and slots(for FTPSession)
-    connectFTPSessionSignals(test, remoteFileName, ifs, se, task);
+    connectFTPSessionSignals(test, remoteFileName, ifs, *se, task);
 
     // test starts: connect -> login -> new a task and init -> upload
-    se.connect(test.hostname);
+    se->connect(test.hostname);
 }

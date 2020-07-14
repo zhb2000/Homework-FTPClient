@@ -135,7 +135,7 @@ namespace ftpclient
         //检查返回码是否为331
         if (!std::regex_search(recvMsg, std::regex(R"(331.*)")))
         {
-            errorMsg = recvMsg;
+            errorMsg = std::move(recvMsg);
             return LoginToServerRes::FAILED_WITH_MSG;
         }
 
@@ -152,9 +152,9 @@ namespace ftpclient
         if (iResult <= 0)
             return LoginToServerRes::RECV_FAILED;
         //检查返回码是否为230
-        if (!std::regex_search(recvMsg, std::regex(R"(230.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(^230.*)")))
         {
-            errorMsg = recvMsg;
+            errorMsg = std::move(recvMsg);
             return LoginToServerRes::FAILED_WITH_MSG;
         }
 
@@ -186,14 +186,14 @@ namespace ftpclient
 
         //检查返回码是否为227
         if (!std::regex_search(
-                recvMsg, std::regex(R"(227.*\(\d+,\d+,\d+,\d+,\d+,\d+\))")))
+                recvMsg, std::regex(R"(^227.*\(\d+,\d+,\d+,\d+,\d+,\d+\))")))
         {
             //返回码为500，必须要用EPSV模式
-            if (std::regex_search(recvMsg, std::regex(R"(500.*)")))
+            if (std::regex_search(recvMsg, std::regex(R"(^500.*)")))
                 return PutPasvModeRes::HAVE_TO_USE_EPSV;
             else
             {
-                errorMsg = recvMsg;
+                errorMsg = std::move(recvMsg);
                 return PutPasvModeRes::FAILED_WITH_MSG;
             }
         }
@@ -226,9 +226,9 @@ namespace ftpclient
             return PutEpsvModeRes::RECV_FAILED;
 
         //检查返回码是否为229
-        if (!std::regex_search(recvMsg, std::regex(R"(229.*\(\|\|\|\d+\|\))")))
+        if (!std::regex_search(recvMsg, std::regex(R"(^229.*\(\|\|\|\d+\|\))")))
         {
-            errorMsg = recvMsg;
+            errorMsg = std::move(recvMsg);
             return PutEpsvModeRes::FAILED_WITH_MSG;
         }
 
@@ -237,7 +237,7 @@ namespace ftpclient
         return PutEpsvModeRes::SUCCEEDED;
     }
 
-    RequestToUpRes requestToUploadToServer(SOCKET dataSock,
+    RequestToUpRes requestToUploadToServer(SOCKET controlSock,
                                            const std::string &remoteFileName,
                                            std::string &errorMsg)
     {
@@ -249,20 +249,20 @@ namespace ftpclient
         //命令"STOR filename\r\n"
         sprintf(sendBuffer.get(), "STOR %s\r\n", remoteFileName.c_str());
         //客户端发送命令请求上传文件到服务器端
-        iResult =
-            send(dataSock, sendBuffer.get(), (int)strlen(sendBuffer.get()), 0);
+        iResult = send(controlSock, sendBuffer.get(),
+                       (int)strlen(sendBuffer.get()), 0);
         if (iResult == SOCKET_ERROR)
             return RequestToUpRes::SEND_FAILED;
 
         //客户端接收服务器的响应码和信息
         //正常为"150 Opening data connection."
-        iResult = utils::recv_all(dataSock, recvMsg);
+        iResult = utils::recv_all(controlSock, recvMsg);
         if (iResult <= 0)
             return RequestToUpRes::RECV_FAILED;
         //检查返回码是否为150
-        if (!std::regex_search(recvMsg, std::regex(R"(150.*)")))
+        if (!std::regex_search(recvMsg, std::regex(R"(^150.*)")))
         {
-            errorMsg = recvMsg;
+            errorMsg = std::move(recvMsg);
             return RequestToUpRes::FAILED_WITH_MSG;
         }
 
@@ -272,26 +272,23 @@ namespace ftpclient
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs)
     {
+        if (!ifs.is_open())
+            return UploadFileDataRes::READ_FILE_ERROR;
+
         const int sendBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
         std::string recvMsg;
-
         int iResult;
         //开始上传文件
-        while (true)
+        while (!ifs.eof())
         {
             //客户端读文件，读取一块
             ifs.read(sendBuffer.get(), sendBufLen);
             iResult = send(dataSock, sendBuffer.get(), ifs.gcount(), 0);
             if (iResult == SOCKET_ERROR)
                 return UploadFileDataRes::SEND_FAILED;
-            if (ifs.rdstate() == std::ios_base::goodbit)
-                continue; //无错误
-            else if (ifs.rdstate() == std::ios_base::eofbit)
-                break; //关联的输出序列已抵达文件尾
-            else
-                return UploadFileDataRes::READ_FILE_ERROR;
         }
+
         return UploadFileDataRes::SUCCEEDED;
     }
 

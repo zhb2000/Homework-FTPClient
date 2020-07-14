@@ -77,15 +77,24 @@ namespace ftpclient
 
     private:
         /**
+         * @brief 让服务器切换到被动模式（PASV或EPSV）
+         * @author zhb
+         *
+         * 异步函数
+         * - 若成功，转到 dataConnect()
+         * - 若失败，发射信号 uploadFailedWithMsg(msg) 或 uploadFailed
+         */
+        void enterPassiveMode();
+
+        /**
          * @brief 与服务器建立数据连接
          * @author zhb
          * @param hostname 主机名
          * @param port 端口号
          *
          * 异步函数
-         * - 若数据连接建立成功，转到执行 uploadRequest()，向服务器发 STOR
-         * 命令请求上传
-         * - 若数据连接建立失败，发射 uploadFailed 信号
+         * - 若成功，转到 uploadRequest()
+         * - 若失败，发射 uploadFailed 信号
          */
         void dataConnect(const std::string &hostname, int port);
 
@@ -116,6 +125,8 @@ namespace ftpclient
         std::string remoteFileName;
         std::ifstream &ifs;
         SOCKET dataSock;
+        //数据连接是否建立
+        bool isConnected;
 
         static const int SOCKET_SEND_TIMEOUT = 3000;
         static const int SOCKET_RECV_TIMEOUT = 3000;

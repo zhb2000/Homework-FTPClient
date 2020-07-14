@@ -112,12 +112,12 @@ namespace ftpclient
     /**
      * @brief 向服务器发送 STOR 命令，请求上传文件
      * @author zhb
-     * @param dataSock 数据连接
+     * @param controlSock 控制连接
      * @param remoteFileName 服务器文件名
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
-    RequestToUpRes requestToUploadToServer(SOCKET dataSock,
+    RequestToUpRes requestToUploadToServer(SOCKET controlSock,
                                            const std::string &remoteFileName,
                                            std::string &errorMsg);
 
