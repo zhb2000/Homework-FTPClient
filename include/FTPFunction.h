@@ -144,6 +144,7 @@ namespace ftpclient
 
     /**
      * @brief 设置传输模式
+     * @author zhb
      * @param controlSock 控制连接
      * @param binaryMode 若为true则设为Binary模式，否则设为ASCII模式
      * @param errorMsg 出口参数，来自服务器的错误信息
@@ -152,6 +153,51 @@ namespace ftpclient
     CmdToServerRet setBinaryOrAsciiTransferMode(SOCKET controlSock,
                                                 bool binaryMode,
                                                 std::string &errorMsg);
+
+    /**
+     * @brief 向服务器发 NOOP 命令
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet sendNoopToServer(SOCKET controlSock, std::string &errorMsg);
+
+    /**
+     * @brief 删除服务器上的文件
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param filename 文件名
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet deleteFileOnServer(SOCKET controlSock,
+                                      const std::string &filename,
+                                      std::string &errorMsg);
+
+    /**
+     * @brief 在服务器上创建目录
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param dir 目录名
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet makeDirectoryOnServer(SOCKET controlSock,
+                                         const std::string &dir,
+                                         std::string &errorMsg);
+
+    /**
+     * @brief 移除服务器上的目录
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param dir 目录名
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet removeDirectoryOnServer(SOCKET controlSock,
+                                           const std::string &dir,
+                                           std::string &errorMsg);
 
     enum class UploadFileDataRes
     {

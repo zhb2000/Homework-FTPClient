@@ -55,7 +55,7 @@ void test_z()
     std::ifstream ifs(localFileName, std::ios_base::in | std::ios_base::binary);
 
     FTPSession *se = new FTPSession();
-    UploadFileTask *task = nullptr;
+    // UploadFileTask *task = nullptr;
 
     // connect
     QObject::connect(se, &FTPSession::connectionToServerSucceeded,
@@ -125,25 +125,35 @@ void test_z()
     QObject::connect(se, &FTPSession::setTransferModeFailed,
                      []() { qDebug("setTransferModeFailed"); });
 
+    // deleteFile
+    QObject::connect(se, &FTPSession::deleteFileSucceeded,
+                     []() { qDebug("deleteFileSucceeded"); });
+    QObject::connect(se, &FTPSession::deleteFileFailedWithMsg, [](string msg) {
+        qDebug("deleteFileFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::deleteFileFailed,
+                     []() { qDebug("deleteFileFailed"); });
+
     QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
         //登录成功后设置二进制模式
         se->setTransferMode(true);
     });
 
     QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
-#ifndef DISABLED_CODE
-        //下一步
-        se->changeDir("/");
-#endif
-
         //#ifndef DISABLED_CODE
+        //下一步
+        se->deleteFile("pic.jpg");
+        //#endif
+
+#ifndef DISABLED_CODE
         // 下一步上传文件
         task = new UploadFileTask(*se, remoteFileName, ifs); // new a task
         // connect signals for task
         // must be done after new a task, not before
         connectUploadSignals(task);
         task->start();
-        //#endif
+#endif
     });
 
     // test starts

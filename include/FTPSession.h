@@ -3,6 +3,7 @@
 
 #include "../include/FTPFunction.h"
 #include <QObject>
+#include <functional>
 #include <string>
 #include <winsock2.h>
 
@@ -74,6 +75,7 @@ namespace ftpclient
 
         /**
          * @brief 改变工作目录
+         * @author zhb
          * @param dir 要设置的工作目录
          *
          * 异步函数，运行结束后会发射以下信号之一：
@@ -83,7 +85,29 @@ namespace ftpclient
          */
         void changeDir(const std::string &dir);
 
+        /**
+         * @brief 设定传输模式
+         * @author zhb
+         * @param binaryMode 传输模式，true为Binary模式，false为ASCII模式
+         *
+         * 异步函数，，运行结束后会发射以下信号之一：
+         * - setTransferModeSucceeded(binaryMode)
+         * - setTransferModeFailedWithMsg(msg)
+         * - setTransferModeFailed
+         */
         void setTransferMode(bool binaryMode);
+
+        /**
+         * @brief 删除服务器上的文件
+         * @author zhb
+         * @param filename 文件名
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - deleteFileSucceeded
+         * - deleteFileFailedWithMsg(msg)
+         * - deleteFileFailed
+         */
+        void deleteFile(const std::string &filename);
 
         /**
          * @brief 关闭控制端口的连接
@@ -143,17 +167,63 @@ namespace ftpclient
          */
         void getFilesizeFailed();
 
+        /**
+         * @brief 获取当前工作目录成功
+         * @param dir 工作目录
+         */
         void getDirSucceeded(std::string dir);
+        /**
+         * @brief 获取当前工作目录失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
         void getDirFailedWithMsg(std::string msg);
+        /**
+         * @brief 获取当前工作目录失败
+         */
         void getDirFailed();
 
+        /**
+         * @brief 改变工作目录成功
+         */
         void changeDirSucceeded();
+        /**
+         * @brief 改变工作目录失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
         void changeDirFailedWithMsg(std::string msg);
+        /**
+         * @brief 改变工作目录失败
+         */
         void changeDirFailed();
 
+        /**
+         * @brief 设定传输模式成功
+         * @param binaryMode 传输模式，true为Binary模式，false为ASCII模式
+         */
         void setTransferModeSucceeded(bool binaryMode);
+        /**
+         * @brief 设定传输模式失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
         void setTransferModeFailedWithMsg(std::string msg);
+        /**
+         * @brief 设定传输模式失败
+         */
         void setTransferModeFailed();
+
+        /**
+         * @brief 删除文件成功
+         */
+        void deleteFileSucceeded();
+        /**
+         * @brief 删除文件失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
+        void deleteFileFailedWithMsg(std::string msg);
+        /**
+         * @brief 删除文件失败
+         */
+        void deleteFileFailed();
 
         // recvFailed 和 sendFailed 信号用于 Debug
         //信号：recv()失败
@@ -162,6 +232,26 @@ namespace ftpclient
         void sendFailed();
 
     private:
+        /**
+         * @brief 在子线程中执行阻塞式函数，结束后发射信号
+         * @param func 需要在子线程中运行的阻塞式函数
+         * @param succeededSignal 成功信号
+         * @param failedWithMsgSignal 失败信号（参数为错误消息）
+         * @param failedSignal 失败信号
+         *
+         * 适用于成功信号为无参函数的情况
+         *
+         * 调用方法：
+         * 1. 用 std::bind 绑定阻塞函数的各个参数，只留 string &errorMsg
+         * 这一个出口参数
+         * 2. 将绑定后的函数对象传入 func 参数
+         * 3. 将各个信号的类成员函数指针传入其余三个参数
+         */
+        void runProcedure(std::function<CmdToServerRet(std::string &)> func,
+                          void (FTPSession::*succeededSignal)(),
+                          void (FTPSession::*failedWithMsgSignal)(std::string),
+                          void (FTPSession::*failedSignal)());
+
         //若 socket 尚未创建，则 controlSock 为 INVALID_SOCKET
         SOCKET controlSock;
         //控制连接是否建立

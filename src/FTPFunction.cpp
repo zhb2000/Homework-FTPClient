@@ -281,6 +281,68 @@ namespace ftpclient
         return ret;
     }
 
+    CmdToServerRet sendNoopToServer(SOCKET controlSock, std::string &errorMsg)
+    {
+        //命令"NOOP\r\n"
+        std::string sendCmd = "NOOP\r\n";
+        std::string recvMsg;
+        //正常为"200 OK"
+        //检查返回码是否为200
+        std::regex e(R"(^200\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet deleteFileOnServer(SOCKET controlSock,
+                                      const std::string &filename,
+                                      std::string &errorMsg)
+    {
+        //命令"DELE filename\r\n"
+        std::string sendCmd = "DELE " + filename + "\r\n";
+        std::string recvMsg;
+        //正常为"250 File deleted successfully"
+        //检查返回码是否为250
+        std::regex e(R"(^250\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet makeDirectoryOnServer(SOCKET controlSock,
+                                         const std::string &dir,
+                                         std::string &errorMsg)
+    {
+        //命令"MKD dir\r\n"
+        std::string sendCmd = "MKD " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为 257 "dir" created successfully
+        //检查返回码是否为257
+        std::regex e(R"(^257\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet removeDirectoryOnServer(SOCKET controlSock,
+                                           const std::string &dir,
+                                           std::string &errorMsg)
+    {
+        //命令"RMD dir\r\n"
+        std::string sendCmd = "RMD " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为"250 Directory deleted successfully"
+        //检查返回码是否为250
+        std::regex e(R"(^250\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs, int &percent)
     {
