@@ -106,6 +106,53 @@ namespace ftpclient
                                            const std::string &remoteFilename,
                                            std::string &errorMsg);
 
+    /**
+     * @brief 获取服务器上某个文件的大小
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param filename 服务器上的文件名
+     * @param filesize 出口参数，文件大小
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
+                                       const std::string &filename,
+                                       int &filesize, std::string &errorMsg);
+
+    /**
+     * @brief 获取工作目录
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param dir 出口参数，当前工作目录
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet getWorkingDirectory(SOCKET controlSock, std::string &dir,
+                                       std::string &errorMsg);
+
+    /**
+     * @brief 改变工作目录
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param dir 要设定的目录
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet changeWorkingDirectory(SOCKET controlSock,
+                                          const std::string &dir,
+                                          std::string &errorMsg);
+
+    /**
+     * @brief 设置传输模式
+     * @param controlSock 控制连接
+     * @param binaryMode 若为true则设为Binary模式，否则设为ASCII模式
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet setBinaryOrAsciiTransferMode(SOCKET controlSock,
+                                                bool binaryMode,
+                                                std::string &errorMsg);
+
     enum class UploadFileDataRes
     {
         SUCCEEDED,
@@ -125,40 +172,6 @@ namespace ftpclient
      */
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs, int &percent);
-
-    /**
-     * @brief 获取服务器上某个文件的大小
-     * @author zhb
-     * @param controlSock 控制连接
-     * @param filename 服务器上的文件名
-     * @param filesize 出口参数，文件大小
-     * @param errorMsg 出口参数，来自服务器的错误消息
-     * @return 结果状态码
-     */
-    CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
-                                       const std::string &filename,
-                                       int &filesize, std::string &errorMsg);
-
-    /**
-     * @brief 获取工作目录
-     * @param controlSock 控制连接
-     * @param dir 出口参数，当前工作目录
-     * @param errorMsg 出口参数，来自服务器的错误消息
-     * @return 结果状态码
-     */
-    CmdToServerRet getWorkingDirectory(SOCKET controlSock, std::string &dir,
-                                       std::string &errorMsg);
-
-    /**
-     * @brief 改变工作目录
-     * @param controlSock 控制连接
-     * @param dir 要设定的目录
-     * @param errorMsg 出口参数，来自服务器的错误消息
-     * @return 结果状态码
-     */
-    CmdToServerRet changeWorkingDirectory(SOCKET controlSock,
-                                          const std::string &dir,
-                                          std::string &errorMsg);
 
 } // namespace ftpclient
 

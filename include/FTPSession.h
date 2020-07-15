@@ -83,6 +83,8 @@ namespace ftpclient
          */
         void changeDir(const std::string &dir);
 
+        void setTransferMode(bool binaryMode);
+
         /**
          * @brief 关闭控制端口的连接
          * @author zhb
@@ -148,6 +150,10 @@ namespace ftpclient
         void changeDirSucceeded();
         void changeDirFailedWithMsg(std::string msg);
         void changeDirFailed();
+
+        void setTransferModeSucceeded(bool binaryMode);
+        void setTransferModeFailedWithMsg(std::string msg);
+        void setTransferModeFailed();
 
         // recvFailed 和 sendFailed 信号用于 Debug
         //信号：recv()失败

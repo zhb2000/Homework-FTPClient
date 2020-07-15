@@ -177,6 +177,31 @@ namespace ftpclient
         }
     }
 
+    void FTPSession::setTransferMode(bool binaryMode)
+    {
+        std::string errorMsg;
+        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
+            return setBinaryOrAsciiTransferMode(controlSock, binaryMode,
+                                                errorMsg);
+        });
+        while (!future.isFinished())
+            QApplication::processEvents();
+
+        auto res = future.result();
+        if (res == CmdToServerRet::SUCCEEDED)
+            emit setTransferModeSucceeded(binaryMode);
+        else if (res == CmdToServerRet::FAILED_WITH_MSG)
+            emit setTransferModeFailedWithMsg(std::move(errorMsg));
+        else
+        {
+            emit setTransferModeFailed();
+            if (res == CmdToServerRet::SEND_FAILED)
+                emit sendFailed();
+            else
+                emit recvFailed();
+        }
+    }
+
     void FTPSession::close()
     {
         // TODO(zhb) 尚未完成

@@ -264,14 +264,30 @@ namespace ftpclient
         return ret;
     }
 
+    CmdToServerRet setBinaryOrAsciiTransferMode(SOCKET controlSock,
+                                                bool binaryMode,
+                                                std::string &errorMsg)
+    {
+        //命令"TYPE I\r\n"或"TYPE A\r\n";
+        std::string param = binaryMode ? "I" : "A";
+        std::string sendCmd = "TYPE " + param + "\r\n";
+        std::string recvMsg;
+        //正常为"200 Type set to mode"
+        //检查返回码是否为200
+        std::regex e(R"(^200\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs, int &percent)
     {
         if (!ifs.is_open())
             return UploadFileDataRes::READ_FILE_ERROR;
-        // TODO(zhb) 文件大小数据类型
-        int filesize = utils::getFilesize(ifs);
-        int totalSend = 0; //已发送的字节总数
+        long long filesize = utils::getFilesize(ifs);
+        long long totalSend = 0; //已发送的字节总数
         const int sendBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
         std::string recvMsg;
@@ -287,7 +303,7 @@ namespace ftpclient
             else
             {
                 totalSend += readLen;
-                percent = int(double(totalSend) / double(filesize) * 100);
+                percent = int(totalSend * 100 / filesize);
             }
         }
 

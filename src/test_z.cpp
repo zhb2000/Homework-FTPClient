@@ -50,13 +50,14 @@ void connectUploadSignals(UploadFileTask *task)
 void test_z()
 {
     const auto &test = testcases[1];
-    string remoteFileName = "file.txt";
-    string localFileName = "C:/Users/zhb/Desktop/ftpclient/file.txt";
+    string remoteFileName = "pic.jpg";
+    string localFileName = "C:/Users/zhb/Desktop/ftpclient/pic.jpg";
     std::ifstream ifs(localFileName, std::ios_base::in | std::ios_base::binary);
 
     FTPSession *se = new FTPSession();
     UploadFileTask *task = nullptr;
 
+    // connect
     QObject::connect(se, &FTPSession::connectionToServerSucceeded,
                      [&](std::string welcomeMsg) {
                          qDebug() << "welcomeMsg: " << welcomeMsg.c_str();
@@ -73,6 +74,7 @@ void test_z()
     QObject::connect(se, &FTPSession::unableToConnectToServer,
                      []() { qDebug() << "unableToConnectToServer"; });
 
+    // login
     QObject::connect(se, &FTPSession::loginSucceeded,
                      []() { qDebug("login succeeded"); });
     QObject::connect(se, &FTPSession::loginFailedWithMsg, [](string errorMsg) {
@@ -82,6 +84,7 @@ void test_z()
     QObject::connect(se, &FTPSession::loginFailed,
                      []() { qDebug("loginFailed"); });
 
+    // getFilesize
     QObject::connect(se, &FTPSession::getFilesizeSucceeded,
                      [](int size) { qDebug() << "file size: " << size; });
     QObject::connect(se, &FTPSession::getFilesizeFailedWithMsg, [](string msg) {
@@ -89,6 +92,7 @@ void test_z()
         qDebug() << "msg: " << msg.data();
     });
 
+    // getDir
     QObject::connect(se, &FTPSession::getDirSucceeded,
                      [](string dir) { qDebug() << "dir: " << dir.data(); });
     QObject::connect(se, &FTPSession::getDirFailedWithMsg, [](string msg) {
@@ -98,6 +102,7 @@ void test_z()
     QObject::connect(se, &FTPSession::getDirFailed,
                      []() { qDebug("getDirFailed"); });
 
+    // changeDir
     QObject::connect(se, &FTPSession::changeDirSucceeded,
                      []() { qDebug("changeDirSucceeded"); });
     QObject::connect(se, &FTPSession::changeDirFailedWithMsg, [](string msg) {
@@ -107,8 +112,25 @@ void test_z()
     QObject::connect(se, &FTPSession::changeDirFailed,
                      []() { qDebug("changeDirFailed"); });
 
+    // setTransferMode
+    QObject::connect(
+        se, &FTPSession::setTransferModeSucceeded, [](bool binary) {
+            qDebug() << "set transfer mode: " << (binary ? "binary" : "ascii");
+        });
+    QObject::connect(se, &FTPSession::setTransferModeFailedWithMsg,
+                     [](string msg) {
+                         qDebug("setTransferModeFailedWithMsg");
+                         qDebug() << "msg: " << msg.data();
+                     });
+    QObject::connect(se, &FTPSession::setTransferModeFailed,
+                     []() { qDebug("setTransferModeFailed"); });
+
     QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
-//登录成功
+        //登录成功后设置二进制模式
+        se->setTransferMode(true);
+    });
+
+    QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
 #ifndef DISABLED_CODE
         //下一步
         se->changeDir("/");

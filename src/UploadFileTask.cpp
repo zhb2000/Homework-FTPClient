@@ -30,6 +30,7 @@ namespace
         int iResult = utils::recvAll(controlSock, recvMsg);
         if (iResult <= 0)
             return RecvMsgAfterUpRes::FAILED;
+        // 226 Successfully transferred "filename"
         //检查返回码是否为226
         if (!std::regex_search(recvMsg, std::regex(R"(^226.*)")))
         {

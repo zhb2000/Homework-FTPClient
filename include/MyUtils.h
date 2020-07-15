@@ -56,7 +56,7 @@ namespace utils
      * @param ifs 文件输入流
      * @return 文件大小（字节）
      */
-    int getFilesize(std::ifstream &ifs);
+    long long getFilesize(std::ifstream &ifs);
 
 } // namespace utils
 
