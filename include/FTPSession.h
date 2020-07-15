@@ -51,6 +51,7 @@ namespace ftpclient
 
         /**
          * @brief 获取文件大小
+         * @author zhb
          * @param filename 服务器上的文件名
          *
          * 异步函数，运行结束后会发射以下信号之一：
@@ -59,6 +60,28 @@ namespace ftpclient
          * - getFilesizeFailed
          */
         void getFilesize(const std::string &filename);
+
+        /**
+         * @brief 获取当前工作目录
+         * @author zhb
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - getDirSucceeded(dir);
+         * - getDirFailedWithMsg(msg);
+         * - getDirFailed
+         */
+        void getDir();
+
+        /**
+         * @brief 改变工作目录
+         * @param dir 要设置的工作目录
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - changeDirSucceeded(dir);
+         * - changeDirFailedWithMsg(msg);
+         * - changeDirFailed
+         */
+        void changeDir(const std::string &dir);
 
         /**
          * @brief 关闭控制端口的连接
@@ -117,6 +140,14 @@ namespace ftpclient
          * @brief 信号：获取文件大小失败
          */
         void getFilesizeFailed();
+
+        void getDirSucceeded(std::string dir);
+        void getDirFailedWithMsg(std::string msg);
+        void getDirFailed();
+
+        void changeDirSucceeded();
+        void changeDirFailedWithMsg(std::string msg);
+        void changeDirFailed();
 
         // recvFailed 和 sendFailed 信号用于 Debug
         //信号：recv()失败

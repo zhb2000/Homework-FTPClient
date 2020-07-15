@@ -45,6 +45,7 @@ namespace ftpclient
 
     /**
      * @brief 向服务器发送命令并收取回复
+     * @author zhb
      * @param controlSock 控制连接
      * @param sendCmd 命令，必须以"\r\n"结尾
      * @param matchRegex 匹配服务器消息的正则
@@ -54,18 +55,6 @@ namespace ftpclient
     CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
                                const std::regex &matchRegex,
                                std::string &recvMsg);
-
-    //    enum class LoginToServerRes
-    //    {
-    //        //登录成功
-    //        SUCCEEDED,
-    //        //登录失败
-    //        FAILED_WITH_MSG,
-    //        // send()失败
-    //        SEND_FAILED,
-    //        // recv()失败
-    //        RECV_FAILED
-    //    };
 
     /**
      * @brief 连接到服务器并登录，该函数为阻塞式
@@ -156,6 +145,27 @@ namespace ftpclient
     CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
                                        const std::string &filename,
                                        int &filesize, std::string &errorMsg);
+
+    /**
+     * @brief 获取工作目录
+     * @param controlSock 控制连接
+     * @param dir 出口参数，当前工作目录
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet getWorkingDirectory(SOCKET controlSock, std::string &dir,
+                                       std::string &errorMsg);
+
+    /**
+     * @brief 改变工作目录
+     * @param controlSock 控制连接
+     * @param dir 要设定的目录
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet changeWorkingDirectory(SOCKET controlSock,
+                                          const std::string &dir,
+                                          std::string &errorMsg);
 
 } // namespace ftpclient
 

@@ -45,6 +45,15 @@ namespace utils
         return filesize;
     }
 
+    std::string getDirFromMsg(const std::string &msg)
+    {
+        // "(.+)"
+        std::regex e("\"(.+)\"");
+        std::sregex_iterator iter(msg.begin(), msg.end(), e);
+        std::string dir = (*iter)[1].str();
+        return dir;
+    }
+
     int recv_all(SOCKET sock, std::string &recvMsg)
     {
         const int maxlen = 1024;

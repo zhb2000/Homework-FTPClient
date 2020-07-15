@@ -33,6 +33,14 @@ namespace utils
     int getSizeFromMsg(const std::string &msg);
 
     /**
+     * @brief 从 '"dir"' 中提取目录
+     * @author zhb
+     * @param msg 服务器返回的消息
+     * @return 表示目录的字符串
+     */
+    std::string getDirFromMsg(const std::string &msg);
+
+    /**
      * @brief 多次调用recv()直到收完所有数据
      * @author zhb
      * @param sock

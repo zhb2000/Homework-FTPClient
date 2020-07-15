@@ -55,7 +55,7 @@ void test_z()
     std::ifstream ifs(localFileName, std::ios_base::in | std::ios_base::binary);
 
     FTPSession *se = new FTPSession();
-    UploadFileTask *task = nullptr;
+    // UploadFileTask *task = nullptr;
 
     QObject::connect(se, &FTPSession::connectionToServerSucceeded,
                      [&](std::string welcomeMsg) {
@@ -73,34 +73,55 @@ void test_z()
     QObject::connect(se, &FTPSession::unableToConnectToServer,
                      []() { qDebug() << "unableToConnectToServer"; });
 
-    QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
-        qDebug("login succeeded");
-        //登录成功
-#ifndef DISABLED_CODE
-        //下一步获取文件大小
-        se->getFilesize("text.txt");
-#endif
-
-        //#ifndef DISABLED_CODE
-        // 下一步上传文件
-        task = new UploadFileTask(*se, remoteFileName, ifs); // new a task
-        // connect signals for task
-        // must be done after new a task, not before
-        connectUploadSignals(task);
-        task->start();
-        //#endif
-    });
+    QObject::connect(se, &FTPSession::loginSucceeded,
+                     []() { qDebug("login succeeded"); });
     QObject::connect(se, &FTPSession::loginFailedWithMsg, [](string errorMsg) {
         qDebug() << "loginFailedWithMsg";
         qDebug() << "errorMsg: " << errorMsg.data();
     });
     QObject::connect(se, &FTPSession::loginFailed,
                      []() { qDebug("loginFailed"); });
+
     QObject::connect(se, &FTPSession::getFilesizeSucceeded,
                      [](int size) { qDebug() << "file size: " << size; });
     QObject::connect(se, &FTPSession::getFilesizeFailedWithMsg, [](string msg) {
         qDebug("getFilesizeFailedWithMsg");
         qDebug() << "msg: " << msg.data();
+    });
+
+    QObject::connect(se, &FTPSession::getDirSucceeded,
+                     [](string dir) { qDebug() << "dir: " << dir.data(); });
+    QObject::connect(se, &FTPSession::getDirFailedWithMsg, [](string msg) {
+        qDebug("getDirFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::getDirFailed,
+                     []() { qDebug("getDirFailed"); });
+
+    QObject::connect(se, &FTPSession::changeDirSucceeded,
+                     []() { qDebug("changeDirSucceeded"); });
+    QObject::connect(se, &FTPSession::changeDirFailedWithMsg, [](string msg) {
+        qDebug("changeDirFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::changeDirFailed,
+                     []() { qDebug("changeDirFailed"); });
+
+    QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
+        //登录成功
+        //#ifndef DISABLED_CODE
+        //下一步
+        se->changeDir("/");
+        //#endif
+
+#ifndef DISABLED_CODE
+        // 下一步上传文件
+        task = new UploadFileTask(*se, remoteFileName, ifs); // new a task
+        // connect signals for task
+        // must be done after new a task, not before
+        connectUploadSignals(task);
+        task->start();
+#endif
     });
 
     // test starts

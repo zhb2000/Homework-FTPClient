@@ -33,6 +33,7 @@ namespace
 
     /**
      * @brief 设置阻塞式recv()的超时时间
+     * @author zhb
      * @param sock 被设置的socket
      * @param timeout 超时时间(ms)
      * @return 设置是否成功
@@ -110,6 +111,25 @@ namespace ftpclient
         }
     }
 
+    CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
+                               const std::regex &matchRegex,
+                               std::string &recvMsg)
+    {
+        int iResult;
+        //向服务器发送命令
+        iResult = send(controlSock, sendCmd.c_str(), sendCmd.length(), 0);
+        if (iResult == SOCKET_ERROR)
+            return CmdToServerRet::SEND_FAILED;
+        //接收服务器响应码和信息
+        iResult = utils::recv_all(controlSock, recvMsg);
+        if (iResult <= 0)
+            return CmdToServerRet::RECV_FAILED;
+        //检查响应码和信息是否符合要求
+        if (!std::regex_search(recvMsg, matchRegex))
+            return CmdToServerRet::FAILED_WITH_MSG;
+        return CmdToServerRet::SUCCEEDED;
+    }
+
     CmdToServerRet loginToServer(SOCKET controlSock,
                                  const std::string &username,
                                  const std::string &password,
@@ -119,7 +139,7 @@ namespace ftpclient
         std::string userCmd = "USER " + username + "\r\n";
         std::string recvMsg;
         //正常为"331 User name okay, need password."
-        //检查返回码是否为331
+        //返回码是否为331
         std::regex userRegex(R"(331\s.*)");
         auto ret = cmdToServer(controlSock, userCmd, userRegex, recvMsg);
         if (ret == CmdToServerRet::SUCCEEDED)
@@ -127,7 +147,7 @@ namespace ftpclient
             // 命令 "PASS password\r\n"
             std::string passCmd = "PASS " + password + "\r\n";
             //正常为"230 User logged in, proceed."
-            //检查返回码是否为230
+            //返回码是否为230
             std::regex passRegex(R"(^230\s.*)");
             ret = cmdToServer(controlSock, passCmd, passRegex, recvMsg);
             if (ret == CmdToServerRet::FAILED_WITH_MSG)
@@ -250,23 +270,37 @@ namespace ftpclient
         return ret;
     }
 
-    CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
-                               const std::regex &matchRegex,
-                               std::string &recvMsg)
+    CmdToServerRet getWorkingDirectory(SOCKET controlSock, std::string &dir,
+                                       std::string &errorMsg)
     {
-        int iResult;
-        //向服务器发送命令
-        iResult = send(controlSock, sendCmd.c_str(), sendCmd.length(), 0);
-        if (iResult == SOCKET_ERROR)
-            return CmdToServerRet::SEND_FAILED;
-        //接收服务器响应码和信息
-        iResult = utils::recv_all(controlSock, recvMsg);
-        if (iResult <= 0)
-            return CmdToServerRet::RECV_FAILED;
-        //检查响应码和信息是否符合要求
-        if (!std::regex_search(recvMsg, matchRegex))
-            return CmdToServerRet::FAILED_WITH_MSG;
-        return CmdToServerRet::SUCCEEDED;
+        //命令"PWD\r\n"
+        std::string sendCmd = "PWD\r\n";
+        std::string recvMsg;
+        //正常为 257 "dir" is current directory.
+        //检查返回码是否为257
+        std::regex e(R"(^257\s+".+")");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            dir = utils::getDirFromMsg(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet changeWorkingDirectory(SOCKET controlSock,
+                                          const std::string &dir,
+                                          std::string &errorMsg)
+    {
+        //命令"CWD dir\r\n"
+        std::string sendCmd = "CWD " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为"250 CWD successful"
+        //检查返回码是否为250
+        std::regex e(R"(^250\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
     }
 
 } // namespace ftpclient

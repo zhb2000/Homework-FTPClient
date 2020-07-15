@@ -129,6 +129,54 @@ namespace ftpclient
         }
     }
 
+    void FTPSession::getDir()
+    {
+        std::string dir;
+        std::string errorMsg;
+        QFuture<CmdToServerRet> future = QtConcurrent::run(
+            [&]() { return getWorkingDirectory(controlSock, dir, errorMsg); });
+        while (!future.isFinished())
+            QApplication::processEvents();
+
+        auto res = future.result();
+        if (res == CmdToServerRet::SUCCEEDED)
+            emit getDirSucceeded(std::move(dir));
+        else if (res == CmdToServerRet::FAILED_WITH_MSG)
+            emit getDirFailedWithMsg(std::move(errorMsg));
+        else
+        {
+            emit getDirFailed();
+            if (res == CmdToServerRet::SEND_FAILED)
+                emit sendFailed();
+            else
+                emit recvFailed();
+        }
+    }
+
+    void FTPSession::changeDir(const std::string &dir)
+    {
+        std::string errorMsg;
+        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
+            return changeWorkingDirectory(controlSock, dir, errorMsg);
+        });
+        while (!future.isFinished())
+            QApplication::processEvents();
+
+        auto res = future.result();
+        if (res == CmdToServerRet::SUCCEEDED)
+            emit changeDirSucceeded();
+        else if (res == CmdToServerRet::FAILED_WITH_MSG)
+            emit changeDirFailedWithMsg(std::move(errorMsg));
+        else
+        {
+            emit changeDirFailed();
+            if (res == CmdToServerRet::SEND_FAILED)
+                emit sendFailed();
+            else
+                emit recvFailed();
+        }
+    }
+
     void FTPSession::close()
     {
         // TODO(zhb) 尚未完成
