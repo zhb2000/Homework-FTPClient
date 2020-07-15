@@ -121,7 +121,7 @@ namespace ftpclient
         if (iResult == SOCKET_ERROR)
             return CmdToServerRet::SEND_FAILED;
         //接收服务器响应码和信息
-        iResult = utils::recv_all(controlSock, recvMsg);
+        iResult = utils::recvAll(controlSock, recvMsg);
         if (iResult <= 0)
             return CmdToServerRet::RECV_FAILED;
         //检查响应码和信息是否符合要求
@@ -198,59 +198,20 @@ namespace ftpclient
         return ret;
     }
 
-    RequestToUpRes requestToUploadToServer(SOCKET controlSock,
+    CmdToServerRet requestToUploadToServer(SOCKET controlSock,
                                            const std::string &remoteFilename,
                                            std::string &errorMsg)
     {
-        const int sendBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        std::string recvMsg;
-
-        int iResult;
         //命令"STOR filename\r\n"
-        sprintf(sendBuffer.get(), "STOR %s\r\n", remoteFilename.c_str());
-        //客户端发送命令请求上传文件到服务器端
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return RequestToUpRes::SEND_FAILED;
-
-        //客户端接收服务器的响应码和信息
-        //正常为"150 Opening data connection."
-        iResult = utils::recv_all(controlSock, recvMsg);
-        if (iResult <= 0)
-            return RequestToUpRes::RECV_FAILED;
-        //检查返回码是否为150
-        if (!std::regex_search(recvMsg, std::regex(R"(^150\s.*)")))
-        {
-            errorMsg = std::move(recvMsg);
-            return RequestToUpRes::FAILED_WITH_MSG;
-        }
-
-        return RequestToUpRes::SUCCEEDED;
-    }
-
-    UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
-                                             std::ifstream &ifs)
-    {
-        if (!ifs.is_open())
-            return UploadFileDataRes::READ_FILE_ERROR;
-
-        const int sendBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
+        std::string sendCmd = "STOR " + remoteFilename + "\r\n";
         std::string recvMsg;
-        int iResult;
-        //开始上传文件
-        while (!ifs.eof())
-        {
-            //客户端读文件，读取一块
-            ifs.read(sendBuffer.get(), sendBufLen);
-            iResult = send(dataSock, sendBuffer.get(), ifs.gcount(), 0);
-            if (iResult == SOCKET_ERROR)
-                return UploadFileDataRes::SEND_FAILED;
-        }
-
-        return UploadFileDataRes::SUCCEEDED;
+        //正常为"150 Opening data connection."
+        //检查返回码是否为150
+        std::regex e(R"(^150\s.*)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
     }
 
     CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
@@ -301,6 +262,36 @@ namespace ftpclient
         if (ret == CmdToServerRet::FAILED_WITH_MSG)
             errorMsg = std::move(recvMsg);
         return ret;
+    }
+
+    UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
+                                             std::ifstream &ifs, int &percent)
+    {
+        if (!ifs.is_open())
+            return UploadFileDataRes::READ_FILE_ERROR;
+        // TODO(zhb) 文件大小数据类型
+        int filesize = utils::getFilesize(ifs);
+        int totalSend = 0; //已发送的字节总数
+        const int sendBufLen = 1024;
+        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
+        std::string recvMsg;
+        int iResult;
+        //开始上传文件
+        while (!ifs.eof())
+        {
+            ifs.read(sendBuffer.get(), sendBufLen); //客户端读文件，读取一块
+            int readLen = int(ifs.gcount());        //刚刚读取的字节数
+            iResult = send(dataSock, sendBuffer.get(), readLen, 0);
+            if (iResult == SOCKET_ERROR)
+                return UploadFileDataRes::SEND_FAILED;
+            else
+            {
+                totalSend += readLen;
+                percent = int(double(totalSend) / double(filesize) * 100);
+            }
+        }
+
+        return UploadFileDataRes::SUCCEEDED;
     }
 
 } // namespace ftpclient

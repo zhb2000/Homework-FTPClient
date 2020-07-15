@@ -27,7 +27,7 @@ namespace
                                          std::string errorMsg)
     {
         std::string recvMsg;
-        int iResult = utils::recv_all(controlSock, recvMsg);
+        int iResult = utils::recvAll(controlSock, recvMsg);
         if (iResult <= 0)
             return RecvMsgAfterUpRes::FAILED;
         //检查返回码是否为226
@@ -48,22 +48,33 @@ namespace ftpclient
         : session(session),
           remoteFileName(std::move(fileName)),
           ifs(ifs),
-          isConnected(false)
+          dataSock(INVALID_SOCKET),
+          isConnected(false),
+          isStop(false)
     {
     }
 
     UploadFileTask::~UploadFileTask()
     {
-        if (!isConnected)
+        if (dataSock != INVALID_SOCKET)
+        {
             closesocket(dataSock);
+            dataSock = INVALID_SOCKET;
+        }
+        isConnected = false;
     }
 
     void UploadFileTask::start() { this->enterPassiveMode(); }
 
     void UploadFileTask::stop()
     {
-        closesocket(dataSock);
-        this->isConnected = false;
+        isStop = true;
+        if (dataSock != INVALID_SOCKET)
+        {
+            closesocket(dataSock);
+            dataSock = INVALID_SOCKET;
+        }
+        isConnected = false;
     }
 
     void UploadFileTask::enterPassiveMode()
@@ -113,6 +124,8 @@ namespace ftpclient
 
     void UploadFileTask::dataConnect(const std::string &hostname, int port)
     {
+        if (isStop)
+            return;
         //尝试与服务器建立数据连接
         QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
             return connectToServer(dataSock, hostname, std::to_string(port),
@@ -135,43 +148,53 @@ namespace ftpclient
 
     void UploadFileTask::uploadRequest()
     {
+        if (isStop)
+            return;
         std::string errorMsg;
-        QFuture<RequestToUpRes> future = QtConcurrent::run([&]() {
+        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
             return requestToUploadToServer(session.getControlSock(),
                                            remoteFileName, errorMsg);
         });
         while (!future.isFinished())
             QApplication::processEvents();
 
-        // TODO(zhb) 先检查同名文件是否存在于服务器上
-
         auto res = future.result();
-        if (res == RequestToUpRes::SUCCEEDED)
+        if (res == CmdToServerRet::SUCCEEDED)
         {
             //服务器同意上传文件
             emit uploadStarted();   //发射 uploadStarted 信号
             this->uploadFileData(); //开始传输文件内容
         }
-        else if (res == RequestToUpRes::FAILED_WITH_MSG)
-            emit uploadFailedWithMsg(std::move(errorMsg));
-        else // res == SEND_FAILED || res == RECV_FAILED
-            emit uploadFailed();
+        else if (!isStop)
+        {
+            if (res == CmdToServerRet::FAILED_WITH_MSG)
+                emit uploadFailedWithMsg(std::move(errorMsg));
+            else // res == SEND_FAILED || res == RECV_FAILED
+                emit uploadFailed();
+        }
     }
 
     void UploadFileTask::uploadFileData()
     {
         std::string errorMsg;
+        int percent = 0, lastPercent = 0;
         QFuture<UploadFileDataRes> upFuture = QtConcurrent::run(
-            [&]() { return uploadFileDataToServer(dataSock, ifs); });
+            [&]() { return uploadFileDataToServer(dataSock, ifs, percent); });
         while (!upFuture.isFinished())
         {
             QApplication::processEvents();
-            // TODO(zhb) 上传百分比
+            if (percent != lastPercent)
+            {
+                emit uploadPercentage(percent);
+                lastPercent = percent;
+            }
         }
 
         //关闭数据连接
         closesocket(this->dataSock);
+        this->dataSock = INVALID_SOCKET;
         this->isConnected = false;
+
         auto upRes = upFuture.result();
         if (upRes == UploadFileDataRes::SUCCEEDED)
         {
@@ -190,10 +213,13 @@ namespace ftpclient
             else // recvRes==FAILED
                 emit uploadFailed();
         }
-        else if (upRes == UploadFileDataRes::SEND_FAILED)
-            emit uploadFailed();
-        else // upRes == READ_FILE_ERROR
-            emit readFileError();
+        else if (!isStop)
+        {
+            if (upRes == UploadFileDataRes::SEND_FAILED)
+                emit uploadFailed();
+            else // upRes == READ_FILE_ERROR
+                emit readFileError();
+        }
     }
 
 } // namespace ftpclient

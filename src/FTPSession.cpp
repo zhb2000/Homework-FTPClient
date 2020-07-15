@@ -59,7 +59,7 @@ namespace ftpclient
         //接收服务器端的一些欢迎信息
         std::string recvMsg;
         QFuture<int> recvRes = QtConcurrent::run(
-            [&]() { return utils::recv_all(controlSock, recvMsg); });
+            [&]() { return utils::recvAll(controlSock, recvMsg); });
         while (!future.isFinished())
         {
             QApplication::processEvents();

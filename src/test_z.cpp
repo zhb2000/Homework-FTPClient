@@ -55,7 +55,7 @@ void test_z()
     std::ifstream ifs(localFileName, std::ios_base::in | std::ios_base::binary);
 
     FTPSession *se = new FTPSession();
-    // UploadFileTask *task = nullptr;
+    UploadFileTask *task = nullptr;
 
     QObject::connect(se, &FTPSession::connectionToServerSucceeded,
                      [&](std::string welcomeMsg) {
@@ -108,20 +108,20 @@ void test_z()
                      []() { qDebug("changeDirFailed"); });
 
     QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
-        //登录成功
-        //#ifndef DISABLED_CODE
+//登录成功
+#ifndef DISABLED_CODE
         //下一步
         se->changeDir("/");
-        //#endif
+#endif
 
-#ifndef DISABLED_CODE
+        //#ifndef DISABLED_CODE
         // 下一步上传文件
         task = new UploadFileTask(*se, remoteFileName, ifs); // new a task
         // connect signals for task
         // must be done after new a task, not before
         connectUploadSignals(task);
         task->start();
-#endif
+        //#endif
     });
 
     // test starts

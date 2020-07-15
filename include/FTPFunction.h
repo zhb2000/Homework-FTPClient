@@ -94,14 +94,6 @@ namespace ftpclient
     CmdToServerRet putServerIntoEpsvMode(SOCKET controlSock, int &port,
                                          std::string &errorMsg);
 
-    enum class RequestToUpRes
-    {
-        SUCCEEDED,
-        FAILED_WITH_MSG,
-        SEND_FAILED,
-        RECV_FAILED
-    };
-
     /**
      * @brief 向服务器发送 STOR 命令，请求上传文件
      * @author zhb
@@ -110,7 +102,7 @@ namespace ftpclient
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
-    RequestToUpRes requestToUploadToServer(SOCKET controlSock,
+    CmdToServerRet requestToUploadToServer(SOCKET controlSock,
                                            const std::string &remoteFilename,
                                            std::string &errorMsg);
 
@@ -126,12 +118,13 @@ namespace ftpclient
      * @author zhb
      * @param dataSock 数据连接
      * @param ifs 文件输入流
+     * @param percent 出口参数，已上传百分比
      * @return 结果状态码
      *
      * 目前还没法暂停或停止上传
      */
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
-                                             std::ifstream &ifs);
+                                             std::ifstream &ifs, int &percent);
 
     /**
      * @brief 获取服务器上某个文件的大小

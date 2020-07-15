@@ -54,7 +54,7 @@ namespace utils
         return dir;
     }
 
-    int recv_all(SOCKET sock, std::string &recvMsg)
+    int recvAll(SOCKET sock, std::string &recvMsg)
     {
         const int maxlen = 1024;
         unique_ptr<char[]> buf(new char[maxlen]);
@@ -78,6 +78,16 @@ namespace utils
             return -1;
         else
             return int(recvMsg.length());
+    }
+
+    // TODO(zhb)数据类型
+    int getFilesize(std::ifstream &ifs)
+    {
+        auto currentPos = ifs.tellg(); //当前位置
+        ifs.seekg(0, std::ios::end);   //移动到文件流结尾
+        int size = int(ifs.tellg());
+        ifs.seekg(currentPos); //恢复位置
+        return size;
     }
 
 } // namespace utils

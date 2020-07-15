@@ -1,6 +1,7 @@
 #ifndef MYUTILS_H
 #define MYUTILS_H
 
+#include <fstream>
 #include <string>
 #include <utility>
 #include <winsock2.h>
@@ -47,7 +48,15 @@ namespace utils
      * @param recvMsg 出口参数，收到的消息
      * @return 收到的字节数，负数表示出错
      */
-    int recv_all(SOCKET sock, std::string &recvMsg);
+    int recvAll(SOCKET sock, std::string &recvMsg);
+
+    /**
+     * @brief 获取文件的大小（字节）
+     * @author zhb
+     * @param ifs 文件输入流
+     * @return 文件大小（字节）
+     */
+    int getFilesize(std::ifstream &ifs);
 
 } // namespace utils
 
