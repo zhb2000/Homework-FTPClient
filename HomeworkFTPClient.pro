@@ -29,6 +29,7 @@ SOURCES += \
 
 HEADERS += \
     include/MyUtils.h \
+    include/RunAsyncAwait.h \
     include/UploadFileTask.h \
     include/mainwindow.h \
     include/ScopeGuard.h \

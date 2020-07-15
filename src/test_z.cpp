@@ -143,7 +143,7 @@ void test_z()
     QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
         //#ifndef DISABLED_CODE
         //下一步
-        se->deleteFile("pic.jpg");
+        se->getDir();
         //#endif
 
 #ifndef DISABLED_CODE
