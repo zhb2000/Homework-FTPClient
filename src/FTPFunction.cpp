@@ -343,6 +343,37 @@ namespace ftpclient
         return ret;
     }
 
+    CmdToServerRet renameFileOnServer(SOCKET controlSock,
+                                      const std::string &oldName,
+                                      const std::string &newName,
+                                      std::string &errorMsg)
+    {
+        std::string recvMsg;
+        //命令"RNFR filename\r\n"
+        std::string rnfrCmd = "RNFR " + oldName + "\r\n";
+        //正常为"350 File exists, ready for destination name."
+        std::regex rnfrE(R"(^350\s+)");
+        auto ret = cmdToServer(controlSock, rnfrCmd, rnfrE, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+        {
+            //命令"RNTO filename\r\n"
+            std::string rntoCmd = "RNTO " + newName + "\r\n";
+            //正常为"250 file renamed successfully"
+            std::regex rntoE(R"(^250\s+)");
+            ret = cmdToServer(controlSock, rntoCmd, rntoE, errorMsg);
+            if (ret == CmdToServerRet::FAILED_WITH_MSG)
+                errorMsg = std::move(recvMsg);
+            return ret;
+        }
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+        {
+            errorMsg = std::move(recvMsg);
+            return ret;
+        }
+        else
+            return ret;
+    }
+
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs, int &percent)
     {

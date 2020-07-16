@@ -155,6 +155,16 @@ void test_z()
     QObject::connect(se, &FTPSession::removeDirFailed,
                      []() { qDebug("removeDirFailed"); });
 
+    // renameFile
+    QObject::connect(se, &FTPSession::renameFileSucceeded,
+                     []() { qDebug("renameFileSucceeded"); });
+    QObject::connect(se, &FTPSession::renameFileFailedWithMsg, [](string msg) {
+        qDebug("renameFileFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::renameFileFailed,
+                     []() { qDebug("renameFileFailed"); });
+
     QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
         //登录成功后设置二进制模式
         se->setTransferMode(true);
@@ -163,7 +173,7 @@ void test_z()
     QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
         //#ifndef DISABLED_CODE
         //下一步
-        se->removeDir("dir");
+        se->renameFile("people", "read.md");
         //#endif
 
 #ifndef DISABLED_CODE

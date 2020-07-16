@@ -199,6 +199,19 @@ namespace ftpclient
                                            const std::string &dir,
                                            std::string &errorMsg);
 
+    /**
+     * @brief 重命名服务器上的文件
+     * @param controlSock 控制连接
+     * @param oldName 当前文件名
+     * @param newName 新文件名
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet renameFileOnServer(SOCKET controlSock,
+                                      const std::string &oldName,
+                                      const std::string &newName,
+                                      std::string &errorMsg);
+
     enum class UploadFileDataRes
     {
         SUCCEEDED,

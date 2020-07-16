@@ -131,6 +131,8 @@ namespace ftpclient
          */
         void removeDir(const std::string &dir);
 
+        void renameFile(const std::string &oldName, const std::string &newName);
+
         /**
          * @brief 关闭控制端口的连接
          * @author zhb
@@ -274,6 +276,10 @@ namespace ftpclient
          * @brief 删除目录失败
          */
         void removeDirFailed();
+
+        void renameFileSucceeded();
+        void renameFileFailedWithMsg(std::string msg);
+        void renameFileFailed();
 
         // recvFailed 和 sendFailed 信号用于 Debug
         //信号：recv()失败

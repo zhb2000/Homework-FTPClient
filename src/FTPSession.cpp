@@ -175,6 +175,18 @@ namespace ftpclient
             &FTPSession::removeDirFailedWithMsg, &FTPSession::removeDirFailed);
     }
 
+    void FTPSession::renameFile(const std::string &oldName,
+                                const std::string &newName)
+    {
+        runProcedure(
+            [&](std::string &msg) {
+                return renameFileOnServer(controlSock, oldName, newName, msg);
+            },
+            &FTPSession::renameFileSucceeded,
+            &FTPSession::renameFileFailedWithMsg,
+            &FTPSession::renameFileFailed);
+    }
+
     void FTPSession::close()
     {
         // TODO(zhb) 尚未完成
