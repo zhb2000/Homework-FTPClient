@@ -13,6 +13,9 @@ using std::unique_ptr;
 namespace ftpclient
 {
 
+    const int FTPSession::SOCKET_SEND_TIMEOUT;
+    const int FTPSession::SOCKET_RECV_TIMEOUT;
+
     FTPSession::FTPSession() : controlSock(INVALID_SOCKET), isConnected(false)
     {
     }
@@ -28,25 +31,19 @@ namespace ftpclient
     {
         this->hostname = hostname;
         //连接并登录服务器
-        QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
-            return connectToServer(controlSock, hostname, std::to_string(port),
-                                   FTPSession::SOCKET_SEND_TIMEOUT,
-                                   FTPSession::SOCKET_RECV_TIMEOUT);
-        });
-        while (!future.isFinished())
-            QApplication::processEvents();
-
-        if (future.result() != ConnectToServerRes::SUCCEEDED)
+        auto connectRes = utils::asyncAwait<ConnectToServerRes>(
+            connectToServer, controlSock, hostname, std::to_string(port),
+            FTPSession::SOCKET_SEND_TIMEOUT, FTPSession::SOCKET_RECV_TIMEOUT);
+        if (connectRes != ConnectToServerRes::SUCCEEDED)
         {
-            if (future.result() ==
-                ConnectToServerRes::UNABLE_TO_CONNECT_TO_SERVER)
+            if (connectRes == ConnectToServerRes::UNABLE_TO_CONNECT_TO_SERVER)
             {
                 emit unableToConnectToServer(); //无法连接到服务器
                 return;
             }
             else
             {
-                emit createSocketFailed(future.result()); //创建socket失败
+                emit createSocketFailed(connectRes); //创建socket失败
                 return;
             }
         }
@@ -55,11 +52,6 @@ namespace ftpclient
 
         //接收服务器端的一些欢迎信息
         std::string recvMsg;
-        //        QFuture<int> recvRes = QtConcurrent::run(
-        //            [&]() { return utils::recvAll(controlSock, recvMsg); });
-        //        while (!future.isFinished())
-        //            QApplication::processEvents();
-
         int recvSize =
             utils::asyncAwait<int>(utils::recvAll, controlSock, recvMsg);
         if (recvSize > 0)
@@ -75,25 +67,18 @@ namespace ftpclient
     void FTPSession::login(const std::string &username,
                            const std::string &password)
     {
-        runProcedure(std::bind(loginToServer, controlSock, username, password,
-                               std::placeholders::_1),
-                     &FTPSession::loginSucceeded,
-                     &FTPSession::loginFailedWithMsg, &FTPSession::loginFailed);
+        runProcedure(
+            [&](std::string &msg) {
+                return loginToServer(controlSock, username, password, msg);
+            },
+            &FTPSession::loginSucceeded, &FTPSession::loginFailedWithMsg,
+            &FTPSession::loginFailed);
     }
 
     void FTPSession::getFilesize(const std::string &filename)
     {
         int filesize;
         std::string errorMsg;
-        //        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
-        //            return getFilesizeOnServer(controlSock, filename,
-        //            filesize,
-        //                                       errorMsg);
-        //        });
-        //        while (!future.isFinished())
-        //            QApplication::processEvents();
-
-        //        auto res = future.result();
         auto res = utils::asyncAwait<CmdToServerRet>(
             getFilesizeOnServer, controlSock, filename, filesize, errorMsg);
         if (res == CmdToServerRet::SUCCEEDED)
@@ -114,13 +99,6 @@ namespace ftpclient
     {
         std::string dir;
         std::string errorMsg;
-        //        QFuture<CmdToServerRet> future = QtConcurrent::run(
-        //            [&]() { return getWorkingDirectory(controlSock, dir,
-        //            errorMsg); });
-        //        while (!future.isFinished())
-        //            QApplication::processEvents();
-
-        //        auto res = future.result();
         auto res = utils::asyncAwait<CmdToServerRet>(
             getWorkingDirectory, controlSock, dir, errorMsg);
         if (res == CmdToServerRet::SUCCEEDED)
@@ -139,25 +117,17 @@ namespace ftpclient
 
     void FTPSession::changeDir(const std::string &dir)
     {
-        runProcedure(std::bind(changeWorkingDirectory, controlSock, dir,
-                               std::placeholders::_1),
-                     &FTPSession::changeDirSucceeded,
-                     &FTPSession::changeDirFailedWithMsg,
-                     &FTPSession::changeDirFailed);
+        runProcedure(
+            [&](std::string &msg) {
+                return changeWorkingDirectory(controlSock, dir, msg);
+            },
+            &FTPSession::changeDirSucceeded,
+            &FTPSession::changeDirFailedWithMsg, &FTPSession::changeDirFailed);
     }
 
     void FTPSession::setTransferMode(bool binaryMode)
     {
         std::string errorMsg;
-        //        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
-        //            return setBinaryOrAsciiTransferMode(controlSock,
-        //            binaryMode,
-        //                                                errorMsg);
-        //        });
-        //        while (!future.isFinished())
-        //            QApplication::processEvents();
-
-        //        auto res = future.result();
         auto res = utils::asyncAwait<CmdToServerRet>(
             setBinaryOrAsciiTransferMode, controlSock, binaryMode, errorMsg);
         if (res == CmdToServerRet::SUCCEEDED)
@@ -176,11 +146,33 @@ namespace ftpclient
 
     void FTPSession::deleteFile(const std::string &filename)
     {
-        runProcedure(std::bind(deleteFileOnServer, controlSock, filename,
-                               std::placeholders::_1),
-                     &FTPSession::deleteFileSucceeded,
-                     &FTPSession::deleteFileFailedWithMsg,
-                     &FTPSession::deleteFileFailed);
+        runProcedure(
+            [&](std::string &msg) {
+                return deleteFileOnServer(controlSock, filename, msg);
+            },
+            &FTPSession::deleteFileSucceeded,
+            &FTPSession::deleteFileFailedWithMsg,
+            &FTPSession::deleteFileFailed);
+    }
+
+    void FTPSession::makeDir(const std::string &dir)
+    {
+        runProcedure(
+            [&](std::string &msg) {
+                return makeDirectoryOnServer(controlSock, dir, msg);
+            },
+            &FTPSession::makeDirSucceeded, &FTPSession::makeDirFailedWithMsg,
+            &FTPSession::makeDirFailed);
+    }
+
+    void FTPSession::removeDir(const std::string &dir)
+    {
+        runProcedure(
+            [&](std::string &msg) {
+                return removeDirectoryOnServer(controlSock, dir, msg);
+            },
+            &FTPSession::removeDirSucceeded,
+            &FTPSession::removeDirFailedWithMsg, &FTPSession::removeDirFailed);
     }
 
     void FTPSession::close()
@@ -197,11 +189,6 @@ namespace ftpclient
         void (FTPSession::*failedWithMsgSignal)(std::string),
         void (FTPSession::*failedSignal)())
     {
-        // QFuture<CmdToServerRet> future =
-        //    QtConcurrent::run([&]() { return func(errorMsg); });
-        // while (!future.isFinished())
-        //    QApplication::processEvents();
-
         std::string errorMsg;
         auto res = utils::asyncAwait<CmdToServerRet>(func, errorMsg);
         if (res == CmdToServerRet::SUCCEEDED)

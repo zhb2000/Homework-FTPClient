@@ -1,11 +1,15 @@
 #include "../include/UploadFileTask.h"
 #include "../include/FTPFunction.h"
 #include "../include/MyUtils.h"
+#include "../include/RunAsyncAwait.h"
 #include <QApplication>
 #include <QFuture>
 #include <QtConcurrent/QtConcurrent>
 #include <memory>
 #include <regex>
+
+const int ftpclient::UploadFileTask::SOCKET_SEND_TIMEOUT;
+const int ftpclient::UploadFileTask::SOCKET_RECV_TIMEOUT;
 
 namespace
 {
@@ -85,14 +89,9 @@ namespace ftpclient
         std::string errorMsg;
 
         //先尝试 PASV 模式
-        QFuture<CmdToServerRet> pasvFuture = QtConcurrent::run([&]() {
-            return putServerIntoPasvMode(session.getControlSock(), port,
-                                         dataHostname, errorMsg);
-        });
-        while (!pasvFuture.isFinished())
-            QApplication::processEvents();
-
-        auto pasvRet = pasvFuture.result();
+        auto pasvRet = utils::asyncAwait<CmdToServerRet>(
+            putServerIntoPasvMode, session.getControlSock(), port, dataHostname,
+            errorMsg);
         if (pasvRet == CmdToServerRet::SUCCEEDED)
             this->dataConnect(dataHostname, port);
         else if (pasvRet == CmdToServerRet::FAILED_WITH_MSG)
@@ -100,14 +99,9 @@ namespace ftpclient
             //返回码为500，必须要用EPSV模式
             if (std::regex_search(errorMsg, std::regex(R"(^500.*)")))
             {
-                QFuture<CmdToServerRet> epsvFuture = QtConcurrent::run([&]() {
-                    return putServerIntoEpsvMode(session.getControlSock(), port,
-                                                 errorMsg);
-                });
-                while (!epsvFuture.isFinished())
-                    QApplication::processEvents();
-
-                auto epsvRes = epsvFuture.result();
+                auto epsvRes = utils::asyncAwait<CmdToServerRet>(
+                    putServerIntoEpsvMode, session.getControlSock(), port,
+                    errorMsg);
                 // EPSV模式下，数据连接的主机名与控制连接的相同
                 if (epsvRes == CmdToServerRet::SUCCEEDED)
                     this->dataConnect(session.getHostName(), port);
@@ -127,17 +121,13 @@ namespace ftpclient
     {
         if (isStop)
             return;
-        //尝试与服务器建立数据连接
-        QFuture<ConnectToServerRes> future = QtConcurrent::run([&]() {
-            return connectToServer(dataSock, hostname, std::to_string(port),
-                                   UploadFileTask::SOCKET_SEND_TIMEOUT,
-                                   UploadFileTask::SOCKET_RECV_TIMEOUT);
-        });
-        while (!future.isFinished())
-            QApplication::processEvents();
 
+        auto res = utils::asyncAwait<ConnectToServerRes>(
+            connectToServer, dataSock, hostname, std::to_string(port),
+            UploadFileTask::SOCKET_SEND_TIMEOUT,
+            UploadFileTask::SOCKET_RECV_TIMEOUT);
         //数据连接建立失败，发射 uploadFailed 信号
-        if (future.result() != ConnectToServerRes::SUCCEEDED)
+        if (res != ConnectToServerRes::SUCCEEDED)
             emit uploadFailed();
         //数据连接建立成功，向服务器发 STOR 命令请求上传
         else
@@ -152,14 +142,9 @@ namespace ftpclient
         if (isStop)
             return;
         std::string errorMsg;
-        QFuture<CmdToServerRet> future = QtConcurrent::run([&]() {
-            return requestToUploadToServer(session.getControlSock(),
-                                           remoteFileName, errorMsg);
-        });
-        while (!future.isFinished())
-            QApplication::processEvents();
-
-        auto res = future.result();
+        auto res = utils::asyncAwait<CmdToServerRet>(requestToUploadToServer,
+                                                     session.getControlSock(),
+                                                     remoteFileName, errorMsg);
         if (res == CmdToServerRet::SUCCEEDED)
         {
             //服务器同意上传文件

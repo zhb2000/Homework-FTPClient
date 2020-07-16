@@ -110,6 +110,28 @@ namespace ftpclient
         void deleteFile(const std::string &filename);
 
         /**
+         * @brief 创建目录
+         * @param dir 目录名
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - makeDirSucceeded
+         * - makeDirFailedWithMsg(msg)
+         * - makeDirFailed
+         */
+        void makeDir(const std::string &dir);
+
+        /**
+         * @brief 删除目录
+         * @param dir 目录名
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - removeDirSucceeded
+         * - removeDirFailedWithMsg(msg)
+         * - removeDirFailed
+         */
+        void removeDir(const std::string &dir);
+
+        /**
          * @brief 关闭控制端口的连接
          * @author zhb
          *
@@ -225,6 +247,34 @@ namespace ftpclient
          */
         void deleteFileFailed();
 
+        /**
+         * @brief 创建目录成功
+         */
+        void makeDirSucceeded();
+        /**
+         * @brief 创建目录失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
+        void makeDirFailedWithMsg(std::string msg);
+        /**
+         * @brief 创建目录失败
+         */
+        void makeDirFailed();
+
+        /**
+         * @brief 删除目录成功
+         */
+        void removeDirSucceeded();
+        /**
+         * @brief 删除目录失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
+        void removeDirFailedWithMsg(std::string msg);
+        /**
+         * @brief 删除目录失败
+         */
+        void removeDirFailed();
+
         // recvFailed 和 sendFailed 信号用于 Debug
         //信号：recv()失败
         void recvFailed();
@@ -242,8 +292,7 @@ namespace ftpclient
          * 适用于成功信号为无参函数的情况
          *
          * 调用方法：
-         * 1. 用 std::bind 绑定阻塞函数的各个参数，只留 string &errorMsg
-         * 这一个出口参数
+         * 1. 通过 lambda 绑定阻塞函数的参数，只留 string &errorMsg 这个出口参数
          * 2. 将绑定后的函数对象传入 func 参数
          * 3. 将各个信号的类成员函数指针传入其余三个参数
          */

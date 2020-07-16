@@ -135,6 +135,26 @@ void test_z()
     QObject::connect(se, &FTPSession::deleteFileFailed,
                      []() { qDebug("deleteFileFailed"); });
 
+    // makeDir
+    QObject::connect(se, &FTPSession::makeDirSucceeded,
+                     []() { qDebug("makeDirSucceeded"); });
+    QObject::connect(se, &FTPSession::makeDirFailedWithMsg, [](string msg) {
+        qDebug("makeDirFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::makeDirFailed,
+                     []() { qDebug("makeDirFailed"); });
+
+    // removeDir
+    QObject::connect(se, &FTPSession::removeDirSucceeded,
+                     []() { qDebug("removeDirSucceeded"); });
+    QObject::connect(se, &FTPSession::removeDirFailedWithMsg, [](string msg) {
+        qDebug("removeDirFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::removeDirFailed,
+                     []() { qDebug("removeDirFailed"); });
+
     QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
         //登录成功后设置二进制模式
         se->setTransferMode(true);
@@ -143,7 +163,7 @@ void test_z()
     QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
         //#ifndef DISABLED_CODE
         //下一步
-        se->getDir();
+        se->removeDir("dir");
         //#endif
 
 #ifndef DISABLED_CODE
