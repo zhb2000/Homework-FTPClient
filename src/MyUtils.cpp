@@ -37,12 +37,12 @@ namespace utils
         return port;
     }
 
-    int getSizeFromMsg(const std::string &msg)
+    long long getSizeFromMsg(const std::string &msg)
     {
         std::regex e(R"(^213\s+(\d+))");
         std::sregex_iterator iter(msg.begin(), msg.end(), e);
 
-        int filesize = std::stoi((*iter)[1]);
+        long long filesize = std::stoll((*iter)[1]);
         return filesize;
     }
 

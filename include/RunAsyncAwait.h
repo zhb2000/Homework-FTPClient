@@ -17,7 +17,7 @@ namespace utils
     ReturnType funcPtrRetType(ReturnType (*)(Args...));
 
     /**
-     * @brief 异步执行某个函数
+     * @brief 异步执行某个函数（有返回值的函数）
      * @author zhb
      * @tparam ReturnType 函数返回类型，需要显式指定
      * @param func 需要异步执行的函数
@@ -35,6 +35,10 @@ namespace utils
         return future.result();
     }
 
+    /**
+     * @brief 异步执行某个函数（无返回值的函数）
+     * @author zhb
+     */
     template <class Function, class... Args>
     inline void asyncAwait(Function func, Args &&... args)
     {

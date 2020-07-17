@@ -203,7 +203,7 @@ namespace ftpclient
          * @brief 信号：获取文件大小成功
          * @param size 文件大小
          */
-        void getFilesizeSucceeded(int size);
+        void getFilesizeSucceeded(long long size);
         /**
          * @brief 信号：获取文件大小失败（带错误消息）
          * @param errorMsg 来自服务器的错误消息

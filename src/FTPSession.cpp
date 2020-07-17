@@ -130,7 +130,7 @@ namespace ftpclient
 
     void FTPSession::getFilesize(const std::string &filename)
     {
-        int filesize;
+        long long filesize;
         std::string errorMsg;
         auto res = utils::asyncAwait<CmdToServerRet>([&]() {
             sockMutex.lock();

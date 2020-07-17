@@ -150,7 +150,8 @@ namespace ftpclient
      */
     CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
                                        const std::string &filename,
-                                       int &filesize, std::string &errorMsg);
+                                       long long &filesize,
+                                       std::string &errorMsg);
 
     /**
      * @brief 获取工作目录

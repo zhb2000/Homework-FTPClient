@@ -33,7 +33,7 @@ namespace utils
      * @param msg 服务器返回的消息
      * @return 文件大小
      */
-    int getSizeFromMsg(const std::string &msg);
+    long long getSizeFromMsg(const std::string &msg);
 
     /**
      * @brief 从 '"dir"' 中提取目录
@@ -53,7 +53,7 @@ namespace utils
     int recvUntilClose(SOCKET sock, std::string &recvMsg);
 
     /**
-     * @brief 接收一条消息（以'\r\n'结尾）
+     * @brief 接收一条消息（以"\r\n"结尾）
      * @author zhb
      * @param controlSock 控制连接
      * @param recvMsg 出口参数，收到的消息

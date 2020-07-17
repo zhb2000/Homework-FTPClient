@@ -90,7 +90,7 @@ void test_z()
 
     // getFilesize
     QObject::connect(se, &FTPSession::getFilesizeSucceeded,
-                     [](int size) { qDebug() << "file size: " << size; });
+                     [](long long size) { qDebug() << "file size: " << size; });
     QObject::connect(se, &FTPSession::getFilesizeFailedWithMsg, [](string msg) {
         qDebug("getFilesizeFailedWithMsg");
         qDebug() << "msg: " << msg.data();
