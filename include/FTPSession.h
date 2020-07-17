@@ -3,7 +3,9 @@
 
 #include "../include/FTPFunction.h"
 #include <QObject>
+#include <QTimer>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <winsock2.h>
 
@@ -20,23 +22,11 @@ namespace ftpclient
          * @param username 用户名
          * @param password 密码
          * @param port 端口号
+         * @param autoKeepAlive 自动发送 NOOP 命令保活
          */
         FTPSession(const std::string &hostname, const std::string &username,
-                   const std::string password, int port = 21)
-            : hostname(hostname),
-              port(port),
-              username(username),
-              password(password),
-              controlSock(INVALID_SOCKET),
-              isConnected(false)
-        {
-            //连接到服务器后，就登录进去
-            QObject::connect(this, &FTPSession::connectSucceeded,
-                             [this]() { this->login(); });
-            //登录成功后，就切换成二进制模式
-            QObject::connect(this, &FTPSession::loginSucceeded,
-                             [this]() { this->setTransferMode(true); });
-        }
+                   const std::string password, int port = 21,
+                   bool autoKeepAlive = true);
         //析构函数
         ~FTPSession()
         {
@@ -393,6 +383,8 @@ namespace ftpclient
          */
         void login();
 
+        void sendNoop();
+
         std::string hostname;
         int port;
         std::string username;
@@ -401,9 +393,13 @@ namespace ftpclient
         SOCKET controlSock;
         //控制连接是否建立
         bool isConnected;
+        //每隔一段时间给服务器发 NOOP 命令
+        QTimer sendNoopTimer;
+        std::mutex sockMutex;
 
         static const int SOCKET_SEND_TIMEOUT = 1000;
         static const int SOCKET_RECV_TIMEOUT = 1000;
+        static const int SEND_NOOP_TIME = 30 * 1000;
     };
 
 } // namespace ftpclient

@@ -14,15 +14,68 @@ namespace ftpclient
 
     const int FTPSession::SOCKET_SEND_TIMEOUT;
     const int FTPSession::SOCKET_RECV_TIMEOUT;
+    const int FTPSession::SEND_NOOP_TIME;
+
+    FTPSession::FTPSession(const std::string &hostname,
+                           const std::string &username,
+                           const std::string password, int port,
+                           bool autoKeepAlive)
+        : hostname(hostname),
+          port(port),
+          username(username),
+          password(password),
+          controlSock(INVALID_SOCKET),
+          isConnected(false)
+    {
+        //连接到服务器后，就登录进去
+        QObject::connect(this, &FTPSession::connectSucceeded,
+                         [this]() { this->login(); });
+        //登录成功
+        QObject::connect(this, &FTPSession::loginSucceeded, [this]() {
+            //切换成二进制传输模式
+            this->setTransferMode(true);
+            //开始间歇性发送 NOOP 命令以保持连接
+        });
+        if (autoKeepAlive)
+        {
+            QObject::connect(&sendNoopTimer, &QTimer::timeout, this,
+                             &FTPSession::sendNoop);
+            sendNoopTimer.start(SEND_NOOP_TIME);
+        }
+    }
+
+    void FTPSession::sendNoop()
+    {
+        utils::asyncAwait([this]() {
+            if (sockMutex.try_lock())
+            {
+                std::string noopCmd = "NOOP\r\n";
+                std::string recvMsg;
+                send(controlSock, noopCmd.c_str(), noopCmd.length(), 0);
+                //正常为"200 OK"
+                //为了省事，这里不校验返回码
+                utils::recvFtpMsg(controlSock, recvMsg);
+                sockMutex.unlock();
+            }
+            else //此时别的线程正在发命令，因此无需用 NOOP 保活
+                return;
+        });
+        sendNoopTimer.start(SEND_NOOP_TIME);
+    }
 
     void FTPSession::connectAndLogin() { this->connect(); }
 
     void FTPSession::connect()
     {
-        //连接并登录服务器
-        auto connectRes = utils::asyncAwait<ConnectToServerRes>(
-            connectToServer, controlSock, hostname, std::to_string(port),
-            FTPSession::SOCKET_SEND_TIMEOUT, FTPSession::SOCKET_RECV_TIMEOUT);
+        //连接服务器
+        auto connectRes = utils::asyncAwait<ConnectToServerRes>([this]() {
+            sockMutex.lock();
+            auto result =
+                connectToServer(controlSock, hostname, std::to_string(port),
+                                SOCKET_SEND_TIMEOUT, SOCKET_RECV_TIMEOUT);
+            sockMutex.unlock();
+            return result;
+        });
         if (connectRes != ConnectToServerRes::SUCCEEDED)
         {
             if (connectRes == ConnectToServerRes::UNABLE_TO_CONNECT_TO_SERVER)
@@ -40,9 +93,13 @@ namespace ftpclient
             isConnected = true;
 
         //接收服务器端的一些欢迎信息
-        std::string recvMsg; //欢迎消息或错误消息
-        auto res =
-            utils::asyncAwait<RecvMultRes>(recvWelcomMsg, controlSock, recvMsg);
+        std::string recvMsg;
+        auto res = utils::asyncAwait<RecvMultRes>([this, &recvMsg]() {
+            sockMutex.lock();
+            auto result = recvWelcomMsg(controlSock, recvMsg);
+            sockMutex.unlock();
+            return result;
+        });
         if (res == RecvMultRes::SUCCEEDED)
             emit connectSucceeded(std::move(recvMsg));
         else if (res == RecvMultRes::FAILED_WITH_MSG)
@@ -61,7 +118,11 @@ namespace ftpclient
     {
         runProcedure(
             [this](std::string &msg) {
-                return loginToServer(controlSock, username, password, msg);
+                sockMutex.lock();
+                auto result =
+                    loginToServer(controlSock, username, password, msg);
+                sockMutex.unlock();
+                return result;
             },
             &FTPSession::loginSucceeded, &FTPSession::loginFailedWithMsg,
             &FTPSession::loginFailed);
@@ -71,8 +132,13 @@ namespace ftpclient
     {
         int filesize;
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>(
-            getFilesizeOnServer, controlSock, filename, filesize, errorMsg);
+        auto res = utils::asyncAwait<CmdToServerRet>([&]() {
+            sockMutex.lock();
+            auto result =
+                getFilesizeOnServer(controlSock, filename, filesize, errorMsg);
+            sockMutex.unlock();
+            return result;
+        });
         if (res == CmdToServerRet::SUCCEEDED)
             emit getFilesizeSucceeded(filesize);
         else if (res == CmdToServerRet::FAILED_WITH_MSG)
@@ -91,8 +157,12 @@ namespace ftpclient
     {
         std::string dir;
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>(
-            getWorkingDirectory, controlSock, dir, errorMsg);
+        auto res = utils::asyncAwait<CmdToServerRet>([&]() {
+            sockMutex.lock();
+            auto result = getWorkingDirectory(controlSock, dir, errorMsg);
+            sockMutex.unlock();
+            return result;
+        });
         if (res == CmdToServerRet::SUCCEEDED)
             emit getDirSucceeded(std::move(dir));
         else if (res == CmdToServerRet::FAILED_WITH_MSG)
@@ -111,7 +181,10 @@ namespace ftpclient
     {
         runProcedure(
             [&dir, this](std::string &msg) {
-                return changeWorkingDirectory(controlSock, dir, msg);
+                sockMutex.lock();
+                auto result = changeWorkingDirectory(controlSock, dir, msg);
+                sockMutex.unlock();
+                return result;
             },
             &FTPSession::changeDirSucceeded,
             &FTPSession::changeDirFailedWithMsg, &FTPSession::changeDirFailed);
@@ -120,8 +193,13 @@ namespace ftpclient
     void FTPSession::setTransferMode(bool binaryMode)
     {
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>(
-            setBinaryOrAsciiTransferMode, controlSock, binaryMode, errorMsg);
+        auto res = utils::asyncAwait<CmdToServerRet>([&]() {
+            sockMutex.lock();
+            auto result =
+                setBinaryOrAsciiTransferMode(controlSock, binaryMode, errorMsg);
+            sockMutex.unlock();
+            return result;
+        });
         if (res == CmdToServerRet::SUCCEEDED)
             emit setTransferModeSucceeded(binaryMode);
         else if (res == CmdToServerRet::FAILED_WITH_MSG)
@@ -140,7 +218,10 @@ namespace ftpclient
     {
         runProcedure(
             [&filename, this](std::string &msg) {
-                return deleteFileOnServer(controlSock, filename, msg);
+                sockMutex.lock();
+                auto result = deleteFileOnServer(controlSock, filename, msg);
+                sockMutex.unlock();
+                return result;
             },
             &FTPSession::deleteFileSucceeded,
             &FTPSession::deleteFileFailedWithMsg,
@@ -151,7 +232,10 @@ namespace ftpclient
     {
         runProcedure(
             [&dir, this](std::string &msg) {
-                return makeDirectoryOnServer(controlSock, dir, msg);
+                sockMutex.lock();
+                auto result = makeDirectoryOnServer(controlSock, dir, msg);
+                sockMutex.unlock();
+                return result;
             },
             &FTPSession::makeDirSucceeded, &FTPSession::makeDirFailedWithMsg,
             &FTPSession::makeDirFailed);
@@ -161,7 +245,10 @@ namespace ftpclient
     {
         runProcedure(
             [&dir, this](std::string &msg) {
-                return removeDirectoryOnServer(controlSock, dir, msg);
+                sockMutex.lock();
+                auto result = removeDirectoryOnServer(controlSock, dir, msg);
+                sockMutex.unlock();
+                return result;
             },
             &FTPSession::removeDirSucceeded,
             &FTPSession::removeDirFailedWithMsg, &FTPSession::removeDirFailed);
@@ -172,7 +259,11 @@ namespace ftpclient
     {
         runProcedure(
             [&](std::string &msg) {
-                return renameFileOnServer(controlSock, oldName, newName, msg);
+                sockMutex.lock();
+                auto result =
+                    renameFileOnServer(controlSock, oldName, newName, msg);
+                sockMutex.unlock();
+                return result;
             },
             &FTPSession::renameFileSucceeded,
             &FTPSession::renameFileFailedWithMsg,
@@ -184,8 +275,11 @@ namespace ftpclient
         std::string errorMsg;
         std::vector<std::string> listStrings;
         auto res = utils::asyncAwait<ListTask::Res>([&]() {
+            sockMutex.lock();
             ListTask task(*this, ".", isNameList);
-            return task.getListStrings(listStrings, errorMsg);
+            auto result = task.getListStrings(listStrings, errorMsg);
+            sockMutex.unlock();
+            return result;
         });
         if (res == ListTask::Res::SUCCEEDED)
             emit listDirSucceeded(std::move(listStrings));

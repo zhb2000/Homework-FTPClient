@@ -99,7 +99,6 @@ namespace ftpclient
         };
         recvListString.clear();
         int recvLen = utils::recvUntilClose(dataSock, recvListString);
-        // TODO(zhb) 接收目录时的recvLen
         if (recvLen >= 0)
         {
             closeDataSock();

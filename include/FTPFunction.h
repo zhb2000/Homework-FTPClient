@@ -1,3 +1,5 @@
+//用于实现 FTP 协议的全局函数
+//都是阻塞式函数，应当在子线程中执行
 #ifndef FTP_FUNCTION_H
 #define FTP_FUNCTION_H
 

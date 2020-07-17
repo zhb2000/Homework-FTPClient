@@ -51,7 +51,7 @@ namespace ftpclient
     UploadFileTask::UploadFileTask(FTPSession &session, std::string fileName,
                                    std::ifstream &ifs)
         : session(session.getHostname(), session.getUsername(),
-                  session.getPassword(), session.getPort()),
+                  session.getPassword(), session.getPort(), false),
           remoteFileName(std::move(fileName)),
           ifs(ifs),
           dataSock(INVALID_SOCKET),
@@ -113,12 +113,8 @@ namespace ftpclient
             //为了省事这里不检查返回码，只是把缓冲区中的消息吃掉
             recvMultipleMsg(session.getControlSock(), std::regex("."), recvMsg);
         });
-        if (dataSock != INVALID_SOCKET)
-        {
-            closesocket(dataSock);
-            dataSock = INVALID_SOCKET;
-        }
-        isDataConnected = false;
+        //关闭数据连接和控制连接
+        this->quit();
     }
 
     void UploadFileTask::enterPassiveMode()
