@@ -57,18 +57,24 @@ void test_z()
     FTPSession *se = new FTPSession();
     // UploadFileTask *task = nullptr;
 
-    // connect
-    QObject::connect(se, &FTPSession::connectionToServerSucceeded,
-                     [&](std::string welcomeMsg) {
-                         qDebug() << "welcomeMsg: " << welcomeMsg.c_str();
-                         // 控制连接建立成功，下一步登录
-                         se->login(test.username, test.password);
-                     });
     QObject::connect(se, &FTPSession::recvFailed,
                      []() { qDebug() << "recvFailed"; });
     QObject::connect(se, &FTPSession::sendFailed,
                      []() { qDebug() << "sendFailed"; });
 
+    // connect
+    QObject::connect(se, &FTPSession::connectSucceeded,
+                     [&](std::string welcomeMsg) {
+                         qDebug() << "welcomeMsg: " << welcomeMsg.c_str();
+                         // 控制连接建立成功，下一步登录
+                         se->login(test.username, test.password);
+                     });
+    QObject::connect(se, &FTPSession::connectFailedWithMsg, [](string msg) {
+        qDebug("connectFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::connectFailed,
+                     []() { qDebug("connectFailed"); });
     QObject::connect(se, &FTPSession::createSocketFailed,
                      []() { qDebug() << "createSocketFailed"; });
     QObject::connect(se, &FTPSession::unableToConnectToServer,
@@ -165,6 +171,20 @@ void test_z()
     QObject::connect(se, &FTPSession::renameFileFailed,
                      []() { qDebug("renameFileFailed"); });
 
+    // listDir
+    QObject::connect(se, &FTPSession::listDirSucceeded,
+                     [](vector<string> dirList) {
+                         qDebug("listDirSucceeded");
+                         for (string &s : dirList)
+                             qDebug() << s.data();
+                     });
+    QObject::connect(se, &FTPSession::listDirFailedWithMsg, [](string msg) {
+        qDebug("listDirFailedWithMsg");
+        qDebug() << "msg: " << msg.data();
+    });
+    QObject::connect(se, &FTPSession::listDirFailed,
+                     []() { qDebug("listDirFailed"); });
+
     QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
         //登录成功后设置二进制模式
         se->setTransferMode(true);
@@ -173,7 +193,7 @@ void test_z()
     QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
         //#ifndef DISABLED_CODE
         //下一步
-        se->renameFile("people", "read.md");
+        se->listWorkingDir();
         //#endif
 
 #ifndef DISABLED_CODE

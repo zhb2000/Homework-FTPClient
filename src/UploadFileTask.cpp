@@ -8,9 +8,6 @@
 #include <memory>
 #include <regex>
 
-const int ftpclient::UploadFileTask::SOCKET_SEND_TIMEOUT;
-const int ftpclient::UploadFileTask::SOCKET_RECV_TIMEOUT;
-
 namespace
 {
     enum class RecvMsgAfterUpRes
@@ -28,10 +25,10 @@ namespace
      * @return 结果状态码
      */
     RecvMsgAfterUpRes recvMsgAfterUpload(SOCKET controlSock,
-                                         std::string errorMsg)
+                                         std::string &errorMsg)
     {
         std::string recvMsg;
-        int iResult = utils::recvAll(controlSock, recvMsg);
+        int iResult = utils::recvFtpMsg(controlSock, recvMsg);
         if (iResult <= 0)
             return RecvMsgAfterUpRes::FAILED;
         // 226 Successfully transferred "filename"
@@ -47,6 +44,9 @@ namespace
 
 namespace ftpclient
 {
+
+    const int UploadFileTask::SOCKET_SEND_TIMEOUT;
+    const int UploadFileTask::SOCKET_RECV_TIMEOUT;
 
     UploadFileTask::UploadFileTask(FTPSession &session, std::string fileName,
                                    std::ifstream &ifs)
@@ -104,7 +104,7 @@ namespace ftpclient
                     errorMsg);
                 // EPSV模式下，数据连接的主机名与控制连接的相同
                 if (epsvRes == CmdToServerRet::SUCCEEDED)
-                    this->dataConnect(session.getHostName(), port);
+                    this->dataConnect(session.getHostname(), port);
                 else if (epsvRes == CmdToServerRet::FAILED_WITH_MSG)
                     emit uploadFailedWithMsg(std::move(errorMsg));
                 else // SEND_FAILED or RECV_FAILED
@@ -184,19 +184,14 @@ namespace ftpclient
         auto upRes = upFuture.result();
         if (upRes == UploadFileDataRes::SUCCEEDED)
         {
-            // 上传结束，用控制端口接收服务器消息
-            QFuture<RecvMsgAfterUpRes> recvFuture = QtConcurrent::run([&]() {
-                return recvMsgAfterUpload(session.getControlSock(), errorMsg);
-            });
-            while (!recvFuture.isFinished())
-                QApplication::processEvents();
-
-            auto recvRes = recvFuture.result();
+            // 上传结束，用控制连接接收服务器消息
+            auto recvRes = utils::asyncAwait<RecvMsgAfterUpRes>(
+                recvMsgAfterUpload, session.getControlSock(), errorMsg);
             if (recvRes == RecvMsgAfterUpRes::SUCCEEDED)
                 emit uploadSucceeded();
             else if (recvRes == RecvMsgAfterUpRes::FAILED_WITH_MSG)
                 emit uploadFailedWithMsg(std::move(errorMsg));
-            else // recvRes==FAILED
+            else // recvRes == FAILED
                 emit uploadFailed();
         }
         else if (!isStop)

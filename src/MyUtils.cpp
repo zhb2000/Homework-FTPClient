@@ -1,6 +1,7 @@
 #include "../include/MyUtils.h"
 #include <memory>
 #include <regex>
+#include <sstream>
 
 using std::unique_ptr;
 
@@ -54,30 +55,53 @@ namespace utils
         return dir;
     }
 
-    int recvAll(SOCKET sock, std::string &recvMsg)
+    int recvUntilClose(SOCKET sock, std::string &recvMsg)
     {
+        recvMsg.clear();
         const int maxlen = 1024;
         unique_ptr<char[]> buf(new char[maxlen]);
-        recvMsg.clear();
-        bool lessThanZero = false;
         int iResult;
+        bool errorOccurred = false;
         while (true)
         {
             iResult = recv(sock, buf.get(), maxlen, 0);
             if (iResult > 0)
                 recvMsg += std::string(buf.get(), iResult);
             else if (iResult == 0)
-                break;
+                break; //对方关闭连接
             else if (iResult < 0)
             {
-                lessThanZero = true;
+                errorOccurred = true;
                 break;
             }
         }
-        if (lessThanZero && recvMsg.length() == 0)
+        if (errorOccurred)
             return -1;
         else
             return int(recvMsg.length());
+    }
+
+    int recvFtpMsg(SOCKET controlSock, std::string &recvMsg)
+    {
+        recvMsg.clear();
+        char buf[1];
+        int iResult;
+        while (true)
+        {
+            iResult = recv(controlSock, buf, 1, 0);
+            if (iResult > 0)
+            {
+                recvMsg.push_back(buf[0]);
+                std::string::size_type len = recvMsg.length();
+                if (len >= 2 && recvMsg[len - 2] == '\r' &&
+                    recvMsg[len - 1] == '\n')
+                    return int(len);
+            }
+            else if (iResult == 0)
+                return int(recvMsg.length());
+            else // iResult < 0
+                return iResult;
+        }
     }
 
     long long getFilesize(std::ifstream &ifs)
@@ -87,6 +111,16 @@ namespace utils
         auto size = ifs.tellg();
         ifs.seekg(currentPos); //恢复位置
         return size;
+    }
+
+    std::vector<std::string> splitLines(const std::string &text)
+    {
+        std::vector<std::string> lines;
+        std::stringstream ss(text);
+        std::string line;
+        while (std::getline(ss, line))
+            lines.push_back(line);
+        return lines;
     }
 
 } // namespace utils

@@ -111,6 +111,53 @@ namespace ftpclient
         }
     }
 
+    RecvMultRes recvMultipleMsg(SOCKET controlSock,
+                                const std::regex &matchRegex, std::string &msg)
+    {
+        msg.clear();
+        std::string recvMsg; //一条FTP消息
+        bool hasMsg = false;
+        int iResult;
+        while (true)
+        {
+            recvMsg.clear();
+            iResult = utils::recvFtpMsg(controlSock, recvMsg);
+            if (iResult > 0)
+            {
+                //检查返回码
+                if (!std::regex_search(recvMsg, matchRegex))
+                {
+                    msg = std::move(recvMsg);
+                    return RecvMultRes::FAILED_WITH_MSG;
+                }
+                else
+                {
+                    hasMsg = true;
+                    msg += recvMsg;
+                }
+            }
+            else
+            {
+                int errorCode = WSAGetLastError();
+                if (iResult < 0 && errorCode != WSAETIMEDOUT)
+                    return RecvMultRes::FAILED;
+                else
+                    break;
+            }
+        }
+        return hasMsg ? RecvMultRes::SUCCEEDED : RecvMultRes::FAILED;
+    }
+
+    RecvMultRes recvWelcomMsg(SOCKET controlSock, std::string &msg)
+    {
+        return recvMultipleMsg(controlSock, std::regex(R"(^220[-\s]+)"), msg);
+    }
+
+    RecvMultRes recvLoginSucceededMsg(SOCKET controlSock, std::string &msg)
+    {
+        return recvMultipleMsg(controlSock, std::regex(R"(^230[-\s])"), msg);
+    }
+
     CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
                                const std::regex &matchRegex,
                                std::string &recvMsg)
@@ -121,7 +168,7 @@ namespace ftpclient
         if (iResult == SOCKET_ERROR)
             return CmdToServerRet::SEND_FAILED;
         //接收服务器响应码和信息
-        iResult = utils::recvAll(controlSock, recvMsg);
+        iResult = utils::recvFtpMsg(controlSock, recvMsg);
         if (iResult <= 0)
             return CmdToServerRet::RECV_FAILED;
         //检查响应码和信息是否符合要求
@@ -146,13 +193,22 @@ namespace ftpclient
         {
             // 命令 "PASS password\r\n"
             std::string passCmd = "PASS " + password + "\r\n";
-            //正常为"230 User logged in, proceed."
-            //返回码是否为230
-            std::regex passRegex(R"(^230\s.*)");
-            ret = cmdToServer(controlSock, passCmd, passRegex, recvMsg);
-            if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            //向服务器发送命令
+            int iResult =
+                send(controlSock, passCmd.c_str(), passCmd.length(), 0);
+            if (iResult == SOCKET_ERROR)
+                return CmdToServerRet::SEND_FAILED;
+            //返回的消息可能有多条
+            auto passRes = recvLoginSucceededMsg(controlSock, recvMsg);
+            if (passRes == RecvMultRes::SUCCEEDED)
+                return CmdToServerRet::SUCCEEDED;
+            else if (passRes == RecvMultRes::FAILED_WITH_MSG)
+            {
                 errorMsg = std::move(recvMsg);
-            return ret;
+                return CmdToServerRet::FAILED_WITH_MSG;
+            }
+            else
+                return CmdToServerRet::RECV_FAILED;
         }
         else if (ret == CmdToServerRet::FAILED_WITH_MSG)
         {
@@ -207,7 +263,7 @@ namespace ftpclient
         std::string recvMsg;
         //正常为"150 Opening data connection."
         //检查返回码是否为150
-        std::regex e(R"(^150\s.*)");
+        std::regex e(R"(^150\s+)");
         auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
         if (ret == CmdToServerRet::FAILED_WITH_MSG)
             errorMsg = std::move(recvMsg);
@@ -372,6 +428,21 @@ namespace ftpclient
         }
         else
             return ret;
+    }
+
+    CmdToServerRet requestToListOnServer(SOCKET controlSock,
+                                         const std::string &dir,
+                                         std::string &errorMsg)
+    {
+        //命令"LIST dir\r\n"
+        std::string sendCmd = "LIST " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为 150 Opening data channel for directory listing of "dir"
+        std::regex e(R"(^150\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
     }
 
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,

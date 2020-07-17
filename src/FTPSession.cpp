@@ -1,5 +1,6 @@
 #include "../include/FTPSession.h"
 #include "../include/FTPFunction.h"
+#include "../include/ListTask.h"
 #include "../include/MyUtils.h"
 #include "../include/RunAsyncAwait.h"
 #include <QApplication>
@@ -7,8 +8,6 @@
 #include <QtConcurrent/QtConcurrent>
 #include <cstring>
 #include <memory>
-
-using std::unique_ptr;
 
 namespace ftpclient
 {
@@ -51,16 +50,20 @@ namespace ftpclient
             isConnected = true;
 
         //接收服务器端的一些欢迎信息
-        std::string recvMsg;
-        int recvSize =
-            utils::asyncAwait<int>(utils::recvAll, controlSock, recvMsg);
-        if (recvSize > 0)
-            emit connectionToServerSucceeded(recvMsg);
-        else
+        std::string recvMsg; //欢迎消息或错误消息
+        auto res =
+            utils::asyncAwait<RecvMultRes>(recvWelcomMsg, controlSock, recvMsg);
+        if (res == RecvMultRes::SUCCEEDED)
+            emit connectSucceeded(std::move(recvMsg));
+        else if (res == RecvMultRes::FAILED_WITH_MSG)
         {
-            emit unableToConnectToServer();
-            emit recvFailed();
             isConnected = false;
+            emit connectFailedWithMsg(std::move(recvMsg));
+        }
+        else // res == FAILED
+        {
+            isConnected = false;
+            emit connectFailed();
         }
     }
 
@@ -185,6 +188,22 @@ namespace ftpclient
             &FTPSession::renameFileSucceeded,
             &FTPSession::renameFileFailedWithMsg,
             &FTPSession::renameFileFailed);
+    }
+
+    void FTPSession::listWorkingDir()
+    {
+        std::string errorMsg;
+        std::vector<std::string> listStrings;
+        auto res = utils::asyncAwait<ListTask::Res>([&]() {
+            ListTask task(*this, ".");
+            return task.getListStrings(listStrings, errorMsg);
+        });
+        if (res == ListTask::Res::SUCCEEDED)
+            emit listDirSucceeded(std::move(listStrings));
+        else if (res == ListTask::Res::FAILED_WITH_MSG)
+            emit listDirFailedWithMsg(std::move(errorMsg));
+        else
+            emit listDirFailed();
     }
 
     void FTPSession::close()

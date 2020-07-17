@@ -19,6 +19,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 LIBS += -lws2_32
 
 SOURCES += \
+    src/ListTask.cpp \
     src/MyUtils.cpp \
     src/UploadFileTask.cpp \
     src/main.cpp \
@@ -28,6 +29,7 @@ SOURCES += \
     src/test_z.cpp
 
 HEADERS += \
+    include/ListTask.h \
     include/MyUtils.h \
     include/RunAsyncAwait.h \
     include/UploadFileTask.h \

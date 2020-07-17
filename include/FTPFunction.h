@@ -35,6 +35,36 @@ namespace ftpclient
                                        const std::string &port, int sendTimeout,
                                        int recvTimeout);
 
+    enum class RecvMultRes
+    {
+        SUCCEEDED,
+        FAILED_WITH_MSG,
+        FAILED
+    };
+
+    /**
+     * @brief 一次性收取多条消息
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param matchRegex 用于匹配的正则
+     * @param msg 出口参数，收到的消息
+     * @return 结果状态码
+     */
+    RecvMultRes recvMultipleMsg(SOCKET controlSock,
+                                const std::regex &matchRegex, std::string &msg);
+
+    /**
+     * @brief 收取多条欢迎消息
+     * @author zhb
+     */
+    RecvMultRes recvWelcomMsg(SOCKET controlSock, std::string &msg);
+
+    /**
+     * @brief 登录成功后收取多条消息
+     * @author zhb
+     */
+    RecvMultRes recvLoginSucceededMsg(SOCKET controlSock, std::string &msg);
+
     enum class CmdToServerRet
     {
         SUCCEEDED,
@@ -57,7 +87,7 @@ namespace ftpclient
                                std::string &recvMsg);
 
     /**
-     * @brief 连接到服务器并登录，该函数为阻塞式
+     * @brief 连接到服务器并登录
      * @author zhb
      * @param controlSock 控制连接
      * @param username 用户名
@@ -212,6 +242,18 @@ namespace ftpclient
                                       const std::string &newName,
                                       std::string &errorMsg);
 
+    /**
+     * @brief 向服务器发 LIST 命令，请求获取目录文件
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param dir 目录名
+     * @param errorMsg 出口参数，来自服务器的错误信息
+     * @return 结果状态码
+     */
+    CmdToServerRet requestToListOnServer(SOCKET controlSock,
+                                         const std::string &dir,
+                                         std::string &errorMsg);
+
     enum class UploadFileDataRes
     {
         SUCCEEDED,
@@ -226,8 +268,6 @@ namespace ftpclient
      * @param ifs 文件输入流
      * @param percent 出口参数，已上传百分比
      * @return 结果状态码
-     *
-     * 目前还没法暂停或停止上传
      */
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs, int &percent);

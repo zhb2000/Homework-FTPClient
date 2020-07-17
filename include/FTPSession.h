@@ -27,10 +27,11 @@ namespace ftpclient
          * @param port 端口号
          *
          * 异步函数，运行结束后会发射以下信号之一：
-         * - connectionToServerSucceeded(welcomeMsg)
+         * - connectSucceeded(welcomeMsg)
+         * - connectFailedWithMsg(errorMsg)
+         * - connectFailed
          * - createSocketFailed(reason)
          * - unableToConnectToServer
-         * - recvFailed
          */
         void connect(const std::string &hostname, int port = 21);
 
@@ -111,6 +112,7 @@ namespace ftpclient
 
         /**
          * @brief 创建目录
+         * @author zhb
          * @param dir 目录名
          *
          * 异步函数，运行结束后会发射以下信号之一：
@@ -122,6 +124,7 @@ namespace ftpclient
 
         /**
          * @brief 删除目录
+         * @author zhb
          * @param dir 目录名
          *
          * 异步函数，运行结束后会发射以下信号之一：
@@ -131,7 +134,20 @@ namespace ftpclient
          */
         void removeDir(const std::string &dir);
 
+        /**
+         * @brief 重命名文件
+         * @author zhb
+         * @param oldName 当前文件名
+         * @param newName 新文件名
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - renameFileSucceeded
+         * - renameFileFailedWithMsg(msg)
+         * - renameFileFailed
+         */
         void renameFile(const std::string &oldName, const std::string &newName);
+
+        void listWorkingDir();
 
         /**
          * @brief 关闭控制端口的连接
@@ -141,7 +157,7 @@ namespace ftpclient
          */
         void close();
 
-        std::string getHostName() const { return hostname; }
+        std::string getHostname() const { return hostname; }
 
         SOCKET getControlSock() const { return controlSock; }
 
@@ -151,7 +167,9 @@ namespace ftpclient
          * @brief 信号：连接服务器成功
          * @param welcomeMsg 来自服务器的欢迎信息
          */
-        void connectionToServerSucceeded(std::string welcomeMsg);
+        void connectSucceeded(std::string welcomeMsg);
+        void connectFailedWithMsg(std::string errorMsg);
+        void connectFailed();
         /**
          * @brief 信号：创建socket失败
          * @param reason 失败原因
@@ -277,9 +295,23 @@ namespace ftpclient
          */
         void removeDirFailed();
 
+        /**
+         * @brief 重命名文件成功
+         */
         void renameFileSucceeded();
+        /**
+         * @brief 重命名文件失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
         void renameFileFailedWithMsg(std::string msg);
+        /**
+         * @brief 重命名文件失败
+         */
         void renameFileFailed();
+
+        void listDirSucceeded(std::vector<std::string> dirList);
+        void listDirFailedWithMsg(std::string msg);
+        void listDirFailed();
 
         // recvFailed 和 sendFailed 信号用于 Debug
         //信号：recv()失败
@@ -313,8 +345,8 @@ namespace ftpclient
         bool isConnected;
         std::string hostname;
 
-        static const int SOCKET_SEND_TIMEOUT = 3000;
-        static const int SOCKET_RECV_TIMEOUT = 3000;
+        static const int SOCKET_SEND_TIMEOUT = 1000;
+        static const int SOCKET_RECV_TIMEOUT = 1000;
     };
 
 } // namespace ftpclient

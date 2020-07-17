@@ -4,6 +4,7 @@
 #include <fstream>
 #include <string>
 #include <utility>
+#include <vector>
 #include <winsock2.h>
 
 namespace utils
@@ -42,13 +43,22 @@ namespace utils
     std::string getDirFromMsg(const std::string &msg);
 
     /**
-     * @brief 多次调用recv()直到收完所有数据
+     * @brief 不断收取数据，直到对方关闭连接
      * @author zhb
      * @param sock
      * @param recvMsg 出口参数，收到的消息
      * @return 收到的字节数，负数表示出错
      */
-    int recvAll(SOCKET sock, std::string &recvMsg);
+    int recvUntilClose(SOCKET sock, std::string &recvMsg);
+
+    /**
+     * @brief 接收一条消息（以'\r\n'结尾）
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param recvMsg 出口参数，收到的消息
+     * @return 收到的字节数，负数表示出错
+     */
+    int recvFtpMsg(SOCKET controlSock, std::string &recvMsg);
 
     /**
      * @brief 获取文件的大小（字节）
@@ -57,6 +67,14 @@ namespace utils
      * @return 文件大小（字节）
      */
     long long getFilesize(std::ifstream &ifs);
+
+    /**
+     * @brief 将文本按行分割
+     * @author zhb
+     * @param text 文本
+     * @return vector中的每个元素为原文本中的一行
+     */
+    std::vector<std::string> splitLines(const std::string &text);
 
 } // namespace utils
 
