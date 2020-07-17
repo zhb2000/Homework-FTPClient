@@ -14,42 +14,45 @@ namespace ftpclient
     {
         Q_OBJECT
     public:
-        FTPSession();
-        ~FTPSession();
+        /**
+         * @brief FTPSession构造函数
+         * @param hostname 服务器主机名
+         * @param username 用户名
+         * @param password 密码
+         * @param port 端口号
+         */
+        FTPSession(const std::string &hostname, const std::string &username,
+                   const std::string password, int port = 21)
+            : hostname(hostname),
+              port(port),
+              username(username),
+              password(password),
+              controlSock(INVALID_SOCKET),
+              isConnected(false)
+        {
+            //连接到服务器后，就登录进去
+            QObject::connect(this, &FTPSession::connectSucceeded,
+                             [this]() { this->login(); });
+            //登录成功后，就切换成二进制模式
+            QObject::connect(this, &FTPSession::loginSucceeded,
+                             [this]() { this->setTransferMode(true); });
+        }
+        //析构函数
+        ~FTPSession()
+        {
+            if (controlSock != INVALID_SOCKET)
+                closesocket(controlSock);
+            WSACleanup();
+        }
         //禁止复制
         FTPSession(const FTPSession &) = delete;
         FTPSession &operator=(const FTPSession &) = delete;
 
         /**
-         * @brief 创建socket、连接服务器
+         * @brief 连接服务器->登录->切换为二进制模式
          * @author zhb
-         * @param hostName 服务器主机名
-         * @param port 端口号
-         *
-         * 异步函数，运行结束后会发射以下信号之一：
-         * - connectSucceeded(welcomeMsg)
-         * - connectFailedWithMsg(errorMsg)
-         * - connectFailed
-         * - createSocketFailed(reason)
-         * - unableToConnectToServer
          */
-        void connect(const std::string &hostname, int port = 21);
-
-        /**
-         * @brief 登录FTP服务器
-         * @author zhb
-         * @param userName 用户名
-         * @param password 密码
-         *
-         * 异步函数，运行结束后会发射以下信号之一：
-         * - loginSucceeded
-         * - loginFailed
-         * - loginFailedWithMsg(msg)
-         *
-         * - sendFailed
-         * - recvFailed
-         */
-        void login(const std::string &username, const std::string &password);
+        void connectAndLogin();
 
         /**
          * @brief 获取文件大小
@@ -147,7 +150,17 @@ namespace ftpclient
          */
         void renameFile(const std::string &oldName, const std::string &newName);
 
-        void listWorkingDir();
+        /**
+         * @brief 获取当前目录中的文件名
+         * @author zhb
+         * @param isNameList 仅获取文件名
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - listWorkingDirSucceeded(dirList)
+         * - listWorkingDirFailedWithMsg(msg)
+         * - listWorkingDirFailed
+         */
+        void listWorkingDir(bool isNameList = true);
 
         /**
          * @brief 关闭控制端口的连接
@@ -155,10 +168,12 @@ namespace ftpclient
          *
          * 尚未完成
          */
-        void close();
+        void quit();
 
         std::string getHostname() const { return hostname; }
-
+        int getPort() const { return port; }
+        std::string getUsername() const { return username; }
+        std::string getPassword() const { return password; }
         SOCKET getControlSock() const { return controlSock; }
 
     signals:
@@ -309,8 +324,19 @@ namespace ftpclient
          */
         void renameFileFailed();
 
+        /**
+         * @brief 获取目录文件名成功
+         * @param dirList 目录文件名数组
+         */
         void listDirSucceeded(std::vector<std::string> dirList);
+        /**
+         * @brief 获取目录文件名失败（带错误消息）
+         * @param msg 来自服务器的错误消息
+         */
         void listDirFailedWithMsg(std::string msg);
+        /**
+         * @brief 获取目录文件名失败
+         */
         void listDirFailed();
 
         // recvFailed 和 sendFailed 信号用于 Debug
@@ -339,11 +365,42 @@ namespace ftpclient
                           void (FTPSession::*failedWithMsgSignal)(std::string),
                           void (FTPSession::*failedSignal)());
 
+        /**
+         * @brief 创建socket、连接服务器
+         * @author zhb
+         * @param hostName 服务器主机名
+         * @param port 端口号
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - connectSucceeded(welcomeMsg)
+         * - connectFailedWithMsg(errorMsg)
+         * - connectFailed
+         * - createSocketFailed(reason)
+         * - unableToConnectToServer
+         */
+        void connect();
+
+        /**
+         * @brief 登录FTP服务器
+         * @author zhb
+         * @param userName 用户名
+         * @param password 密码
+         *
+         * 异步函数，运行结束后会发射以下信号之一：
+         * - loginSucceeded
+         * - loginFailed
+         * - loginFailedWithMsg(msg)
+         */
+        void login();
+
+        std::string hostname;
+        int port;
+        std::string username;
+        std::string password;
         //若 socket 尚未创建，则 controlSock 为 INVALID_SOCKET
         SOCKET controlSock;
         //控制连接是否建立
         bool isConnected;
-        std::string hostname;
 
         static const int SOCKET_SEND_TIMEOUT = 1000;
         static const int SOCKET_RECV_TIMEOUT = 1000;

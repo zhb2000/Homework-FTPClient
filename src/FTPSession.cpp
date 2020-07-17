@@ -15,20 +15,10 @@ namespace ftpclient
     const int FTPSession::SOCKET_SEND_TIMEOUT;
     const int FTPSession::SOCKET_RECV_TIMEOUT;
 
-    FTPSession::FTPSession() : controlSock(INVALID_SOCKET), isConnected(false)
-    {
-    }
+    void FTPSession::connectAndLogin() { this->connect(); }
 
-    FTPSession::~FTPSession()
+    void FTPSession::connect()
     {
-        if (controlSock != INVALID_SOCKET)
-            closesocket(controlSock);
-        WSACleanup();
-    }
-
-    void FTPSession::connect(const std::string &hostname, int port)
-    {
-        this->hostname = hostname;
         //连接并登录服务器
         auto connectRes = utils::asyncAwait<ConnectToServerRes>(
             connectToServer, controlSock, hostname, std::to_string(port),
@@ -67,11 +57,10 @@ namespace ftpclient
         }
     }
 
-    void FTPSession::login(const std::string &username,
-                           const std::string &password)
+    void FTPSession::login()
     {
         runProcedure(
-            [&](std::string &msg) {
+            [this](std::string &msg) {
                 return loginToServer(controlSock, username, password, msg);
             },
             &FTPSession::loginSucceeded, &FTPSession::loginFailedWithMsg,
@@ -121,7 +110,7 @@ namespace ftpclient
     void FTPSession::changeDir(const std::string &dir)
     {
         runProcedure(
-            [&](std::string &msg) {
+            [&dir, this](std::string &msg) {
                 return changeWorkingDirectory(controlSock, dir, msg);
             },
             &FTPSession::changeDirSucceeded,
@@ -150,7 +139,7 @@ namespace ftpclient
     void FTPSession::deleteFile(const std::string &filename)
     {
         runProcedure(
-            [&](std::string &msg) {
+            [&filename, this](std::string &msg) {
                 return deleteFileOnServer(controlSock, filename, msg);
             },
             &FTPSession::deleteFileSucceeded,
@@ -161,7 +150,7 @@ namespace ftpclient
     void FTPSession::makeDir(const std::string &dir)
     {
         runProcedure(
-            [&](std::string &msg) {
+            [&dir, this](std::string &msg) {
                 return makeDirectoryOnServer(controlSock, dir, msg);
             },
             &FTPSession::makeDirSucceeded, &FTPSession::makeDirFailedWithMsg,
@@ -171,7 +160,7 @@ namespace ftpclient
     void FTPSession::removeDir(const std::string &dir)
     {
         runProcedure(
-            [&](std::string &msg) {
+            [&dir, this](std::string &msg) {
                 return removeDirectoryOnServer(controlSock, dir, msg);
             },
             &FTPSession::removeDirSucceeded,
@@ -190,12 +179,12 @@ namespace ftpclient
             &FTPSession::renameFileFailed);
     }
 
-    void FTPSession::listWorkingDir()
+    void FTPSession::listWorkingDir(bool isNameList)
     {
         std::string errorMsg;
         std::vector<std::string> listStrings;
         auto res = utils::asyncAwait<ListTask::Res>([&]() {
-            ListTask task(*this, ".");
+            ListTask task(*this, ".", isNameList);
             return task.getListStrings(listStrings, errorMsg);
         });
         if (res == ListTask::Res::SUCCEEDED)
@@ -206,9 +195,9 @@ namespace ftpclient
             emit listDirFailed();
     }
 
-    void FTPSession::close()
+    void FTPSession::quit()
     {
-        // TODO(zhb) 尚未完成
+        // 把控制连接关闭
         if (this->isConnected)
             closesocket(controlSock);
         isConnected = false;

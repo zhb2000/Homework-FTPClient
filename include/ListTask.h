@@ -7,10 +7,28 @@
 
 namespace ftpclient
 {
+    /**
+     * @brief 传输目录文件名的任务
+     *
+     * 成员函数为阻塞式的同步函数，需要在子线程中调用
+     */
     class ListTask
     {
     public:
-        ListTask(FTPSession &session, const std::string &dir);
+        /**
+         * @brief ListTask的构造函数
+         * @param session FTPSesson对象引用
+         * @param dir 要获取的目录名
+         * @param isNameList 仅获取文件名
+         */
+        ListTask(FTPSession &session, const std::string &dir, bool isNameList)
+            : session(session),
+              dir(dir),
+              isNameList(isNameList),
+              dataSock(INVALID_SOCKET),
+              isConnect(false)
+        {
+        }
         ~ListTask()
         {
             if (dataSock != INVALID_SOCKET)
@@ -28,7 +46,7 @@ namespace ftpclient
         };
 
         /**
-         * @brief 获取服务器返回信息的原始版本
+         * @brief 获取服务器返回信息
          * @author zhb
          * @param listStrings 出口参数，每个元素为一条代表文件信息的字符串
          * @param errorMsg 出口参数，来自服务器的错误消息
@@ -93,6 +111,8 @@ namespace ftpclient
 
         FTPSession &session;
         std::string dir;
+        //是否仅仅获取文件名
+        bool isNameList;
         //若 socket 未创建，则为 INVALID_SOCKET
         SOCKET dataSock;
         //数据连接是否建立

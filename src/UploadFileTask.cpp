@@ -50,36 +50,75 @@ namespace ftpclient
 
     UploadFileTask::UploadFileTask(FTPSession &session, std::string fileName,
                                    std::ifstream &ifs)
-        : session(session),
+        : session(session.getHostname(), session.getUsername(),
+                  session.getPassword(), session.getPort()),
           remoteFileName(std::move(fileName)),
           ifs(ifs),
           dataSock(INVALID_SOCKET),
-          isConnected(false),
-          isStop(false)
+          isDataConnected(false),
+          isSetStop(false)
     {
+        connectSessionSignals();
     }
 
     UploadFileTask::~UploadFileTask()
     {
-        if (dataSock != INVALID_SOCKET)
-        {
-            closesocket(dataSock);
-            dataSock = INVALID_SOCKET;
-        }
-        isConnected = false;
+        this->quit();
+        WSACleanup();
     }
 
-    void UploadFileTask::start() { this->enterPassiveMode(); }
+    void UploadFileTask::connectSessionSignals()
+    {
+        //控制连接建立失败，发射错误信号
+        QObject::connect(&session, &FTPSession::connectFailedWithMsg,
+                         [this](std::string msg) {
+                             emit uploadFailedWithMsg(std::move(msg));
+                         });
+        QObject::connect(&session, &FTPSession::connectFailed,
+                         [this]() { emit uploadFailed(); });
+        QObject::connect(&session, &FTPSession::createSocketFailed,
+                         [this]() { emit uploadFailed(); });
+        QObject::connect(&session, &FTPSession::unableToConnectToServer,
+                         [this]() { emit uploadFailed(); });
+        //登录失败，发射故障信号
+        QObject::connect(&session, &FTPSession::loginFailedWithMsg,
+                         [this](std::string msg) {
+                             emit uploadFailedWithMsg(std::move(msg));
+                         });
+        QObject::connect(&session, &FTPSession::loginFailed,
+                         [this]() { emit uploadFailed(); });
+        //传输模式设置失败，发射故障信号
+        QObject::connect(&session, &FTPSession::setTransferModeFailedWithMsg,
+                         [this](std::string msg) {
+                             emit uploadFailedWithMsg(std::move(msg));
+                         });
+        QObject::connect(&session, &FTPSession::setTransferModeFailed,
+                         [this]() { emit uploadFailed(); });
+        //传输模式设置成功，接下来按照既定流程自动进行
+        QObject::connect(&session, &FTPSession::setTransferModeSucceeded,
+                         [this]() { this->enterPassiveMode(); });
+    }
+
+    void UploadFileTask::start() { session.connectAndLogin(); }
 
     void UploadFileTask::stop()
     {
-        isStop = true;
+        isSetStop = true;
+        utils::asyncAwait([this]() {
+            std::string sendCmd = "ABOR STOR\r\n";
+            send(session.getControlSock(), sendCmd.c_str(), sendCmd.length(),
+                 0);
+            std::string recvMsg;
+            //两种情况：1. 服务器返回 226；2. 服务器先返回 426，再返回 226
+            //为了省事这里不检查返回码，只是把缓冲区中的消息吃掉
+            recvMultipleMsg(session.getControlSock(), std::regex("."), recvMsg);
+        });
         if (dataSock != INVALID_SOCKET)
         {
             closesocket(dataSock);
             dataSock = INVALID_SOCKET;
         }
-        isConnected = false;
+        isDataConnected = false;
     }
 
     void UploadFileTask::enterPassiveMode()
@@ -119,7 +158,7 @@ namespace ftpclient
 
     void UploadFileTask::dataConnect(const std::string &hostname, int port)
     {
-        if (isStop)
+        if (isSetStop)
             return;
 
         auto res = utils::asyncAwait<ConnectToServerRes>(
@@ -132,14 +171,14 @@ namespace ftpclient
         //数据连接建立成功，向服务器发 STOR 命令请求上传
         else
         {
-            this->isConnected = true;
+            this->isDataConnected = true;
             this->uploadRequest();
         }
     }
 
     void UploadFileTask::uploadRequest()
     {
-        if (isStop)
+        if (isSetStop)
             return;
         std::string errorMsg;
         auto res = utils::asyncAwait<CmdToServerRet>(requestToUploadToServer,
@@ -151,7 +190,7 @@ namespace ftpclient
             emit uploadStarted();   //发射 uploadStarted 信号
             this->uploadFileData(); //开始传输文件内容
         }
-        else if (!isStop)
+        else if (!isSetStop)
         {
             if (res == CmdToServerRet::FAILED_WITH_MSG)
                 emit uploadFailedWithMsg(std::move(errorMsg));
@@ -177,9 +216,9 @@ namespace ftpclient
         }
 
         //关闭数据连接
-        closesocket(this->dataSock);
-        this->dataSock = INVALID_SOCKET;
-        this->isConnected = false;
+        closesocket(dataSock);
+        dataSock = INVALID_SOCKET;
+        isDataConnected = false;
 
         auto upRes = upFuture.result();
         if (upRes == UploadFileDataRes::SUCCEEDED)
@@ -194,13 +233,26 @@ namespace ftpclient
             else // recvRes == FAILED
                 emit uploadFailed();
         }
-        else if (!isStop)
+        else if (!isSetStop)
         {
             if (upRes == UploadFileDataRes::SEND_FAILED)
                 emit uploadFailed();
             else // upRes == READ_FILE_ERROR
                 emit readFileError();
         }
+        //关闭控制连接
+        session.quit();
+    }
+
+    void UploadFileTask::quit()
+    {
+        if (dataSock != INVALID_SOCKET)
+        {
+            closesocket(dataSock);
+            dataSock = INVALID_SOCKET;
+        }
+        isDataConnected = false;
+        session.quit();
     }
 
 } // namespace ftpclient

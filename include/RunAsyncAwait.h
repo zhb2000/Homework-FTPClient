@@ -35,6 +35,15 @@ namespace utils
         return future.result();
     }
 
+    template <class Function, class... Args>
+    inline void asyncAwait(Function func, Args &&... args)
+    {
+        QFuture<void> future = QtConcurrent::run(
+            [&]() { return func(std::forward<Args>(args)...); });
+        while (!future.isFinished())
+            QApplication::processEvents();
+    }
+
 } // namespace utils
 
 #endif // RUN_ASYNC_AWAIT_H

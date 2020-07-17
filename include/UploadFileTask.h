@@ -121,15 +121,25 @@ namespace ftpclient
          */
         void uploadFileData();
 
-        FTPSession &session;
+        void connectSessionSignals();
+
+        /**
+         * @brief 关闭控制连接和数据连接
+         */
+        void quit();
+
+        //需要额外建一个控制连接
+        FTPSession session;
+        //文件名
         std::string remoteFileName;
+        //文件输入流
         std::ifstream &ifs;
         //若 socket 未创建，则为 INVALID_SOCKET
         SOCKET dataSock;
         //数据连接是否建立
-        bool isConnected;
+        bool isDataConnected;
         // stop()是否被调用
-        bool isStop;
+        bool isSetStop;
 
         static const int SOCKET_SEND_TIMEOUT = 3000;
         static const int SOCKET_RECV_TIMEOUT = 3000;

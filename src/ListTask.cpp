@@ -4,16 +4,6 @@
 
 namespace ftpclient
 {
-    ListTask::ListTask(FTPSession &session, const std::string &dir)
-        : session(session), dir(dir), dataSock(INVALID_SOCKET), isConnect(false)
-    {
-    }
-
-    //    ListTask::~ListTask()
-    //    {
-    //        if (dataSock != INVALID_SOCKET)
-    //            closesocket(dataSock);
-    //    }
 
     ListTask::Res
     ListTask::getListStrings(std::vector<std::string> &listStrings,
