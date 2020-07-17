@@ -23,10 +23,10 @@ namespace ftpclient
          * @brief UploadFileTask 构造函数
          * @author zhb
          * @param session FTP会话
-         * @param remoteFileName 服务器文件名
+         * @param remoteFilepath 服务器文件路径，应使用绝对路径
          * @param ifs 文件输入流
          */
-        UploadFileTask(FTPSession &session, std::string remoteFileName,
+        UploadFileTask(FTPSession &session, std::string remoteFilepath,
                        std::ifstream &ifs);
 
         ~UploadFileTask();
@@ -39,6 +39,13 @@ namespace ftpclient
          * @author zhb
          */
         void start();
+
+        /**
+         * @brief 开始断点续传
+         * @author zhb
+         * @param uploadedSize 已上传的大小（单位：字节）
+         */
+        void resume(long long uploadedSize);
 
         /**
          * @brief 停止上传
@@ -99,7 +106,7 @@ namespace ftpclient
         void dataConnect(const std::string &hostname, int port);
 
         /**
-         * @brief 向服务器发 STOR 命令请求上传
+         * @brief 向服务器发 STOR 或 APPE 请求上传
          * @author zhb
          *
          * 异步函数
@@ -130,8 +137,8 @@ namespace ftpclient
 
         //需要额外建一个控制连接
         FTPSession session;
-        //文件名
-        std::string remoteFileName;
+        //文件路径
+        std::string remoteFilepath;
         //文件输入流
         std::ifstream &ifs;
         //若 socket 未创建，则为 INVALID_SOCKET
@@ -140,6 +147,8 @@ namespace ftpclient
         bool isDataConnected;
         // stop()是否被调用
         bool isSetStop;
+        //是否为续传
+        bool isAppend;
 
         static const int SOCKET_SEND_TIMEOUT = 3000;
         static const int SOCKET_RECV_TIMEOUT = 3000;

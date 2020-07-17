@@ -127,14 +127,15 @@ namespace ftpclient
                                          std::string &errorMsg);
 
     /**
-     * @brief 向服务器发送 STOR 命令，请求上传文件
+     * @brief 向服务器发送 STOR 或 APPE 命令，请求上传文件
      * @author zhb
      * @param controlSock 控制连接
+     * @param isAppend 是否为 APPE
      * @param remoteFilename 服务器文件名
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
-    CmdToServerRet requestToUploadToServer(SOCKET controlSock,
+    CmdToServerRet requestToUploadToServer(SOCKET controlSock, bool isAppend,
                                            const std::string &remoteFilename,
                                            std::string &errorMsg);
 

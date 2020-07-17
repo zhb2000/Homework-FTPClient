@@ -48,15 +48,16 @@ namespace ftpclient
     const int UploadFileTask::SOCKET_SEND_TIMEOUT;
     const int UploadFileTask::SOCKET_RECV_TIMEOUT;
 
-    UploadFileTask::UploadFileTask(FTPSession &session, std::string fileName,
+    UploadFileTask::UploadFileTask(FTPSession &session, std::string filepath,
                                    std::ifstream &ifs)
         : session(session.getHostname(), session.getUsername(),
                   session.getPassword(), session.getPort(), false),
-          remoteFileName(std::move(fileName)),
+          remoteFilepath(std::move(filepath)),
           ifs(ifs),
           dataSock(INVALID_SOCKET),
           isDataConnected(false),
-          isSetStop(false)
+          isSetStop(false),
+          isAppend(false)
     {
         connectSessionSignals();
     }
@@ -100,6 +101,13 @@ namespace ftpclient
     }
 
     void UploadFileTask::start() { session.connectAndLogin(); }
+
+    void UploadFileTask::resume(long long uploadedSize)
+    {
+        isAppend = true;
+        ifs.seekg(uploadedSize);
+        session.connectAndLogin();
+    }
 
     void UploadFileTask::stop()
     {
@@ -177,9 +185,9 @@ namespace ftpclient
         if (isSetStop)
             return;
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>(requestToUploadToServer,
-                                                     session.getControlSock(),
-                                                     remoteFileName, errorMsg);
+        auto res = utils::asyncAwait<CmdToServerRet>(
+            requestToUploadToServer, session.getControlSock(), isAppend,
+            remoteFilepath, errorMsg);
         if (res == CmdToServerRet::SUCCEEDED)
         {
             //服务器同意上传文件

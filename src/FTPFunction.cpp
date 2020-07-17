@@ -254,12 +254,13 @@ namespace ftpclient
         return ret;
     }
 
-    CmdToServerRet requestToUploadToServer(SOCKET controlSock,
+    CmdToServerRet requestToUploadToServer(SOCKET controlSock, bool isAppend,
                                            const std::string &remoteFilename,
                                            std::string &errorMsg)
     {
-        //命令"STOR filename\r\n"
-        std::string sendCmd = "STOR " + remoteFilename + "\r\n";
+        //命令"STOR filename\r\n" 或 "APPE filename\r\n"
+        std::string sendCmd =
+            (isAppend ? "APPE " : "STOR ") + remoteFilename + "\r\n";
         std::string recvMsg;
         //正常为"150 Opening data connection."
         //检查返回码是否为150
@@ -451,7 +452,7 @@ namespace ftpclient
         if (!ifs.is_open())
             return UploadFileDataRes::READ_FILE_ERROR;
         long long filesize = utils::getFilesize(ifs);
-        long long totalSend = 0; //已发送的字节总数
+        long long totalSend = ifs.tellg(); //已发送的字节总数
         const int sendBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
         std::string recvMsg;

@@ -50,7 +50,7 @@ namespace ftpclient
          * @param filename 服务器上的文件名
          *
          * 异步函数，运行结束后会发射以下信号之一：
-         * - getFilesizeSucceeded
+         * - getFilesizeSucceeded(size)
          * - getFilesizeFailedWithMsg(msg)
          * - getFilesizeFailed
          */

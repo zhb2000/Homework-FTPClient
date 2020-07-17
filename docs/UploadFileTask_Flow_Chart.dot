@@ -2,6 +2,10 @@ digraph G {
     node [shape=box fontname="SimHei"];
     edge [fontname="SimHei"]
     createobj [label="创建对象" shape=ellipse]
+    newctrl [label="新建一个控制连接"]
+    success0 [label="成功?" shape=diamond]
+    newctrlfailsig [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
+    fail0 [label="任务失败" shape=ellipse]
     putpasv [label="切换到被动模式"]
     success1 [label="成功?" shape=diamond]
     putpasvfail [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
@@ -10,7 +14,7 @@ digraph G {
     success2 [label="成功?" shape=diamond]
     connectfail [label="发射信号\nuploadFailed" shape=note]
     fail2 [label="任务失败" shape=ellipse]
-    sendstor [label="发 STOR 请求上传"]
+    sendstor [label="控制连接发STOR/APPE请求上传"]
     success3 [label="同意上传?" shape=diamond]
     storfail [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
     fail3 [label="任务失败" shape=ellipse]
@@ -29,7 +33,14 @@ digraph G {
     fail5 [label="任务失败" shape=ellipse]
     
     rankdir=TB
-    createobj->putpasv [label="调用 start()"]
+    createobj->newctrl [label="调用start()或resume()"]
+    newctrl->success0
+    {
+        rank=same
+        fail0->newctrlfailsig [dir=back]
+        newctrlfailsig->success0 [dir=back label="No"]
+    }
+    success0->putpasv [label="Yes"]
     putpasv->success1
     success1->dataconnect [label="Yes"]
     {
