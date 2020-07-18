@@ -36,9 +36,6 @@ namespace ftpclient
         //禁止复制
         FTPSession(const FTPSession &) = delete;
         FTPSession &operator=(const FTPSession &) = delete;
-        //只能移动
-        FTPSession(FTPSession &&other);
-        FTPSession &operator=(FTPSession &&other);
 
         /**
          * @brief 连接服务器->登录->切换为二进制模式

@@ -53,36 +53,6 @@ namespace ftpclient
         }
     }
 
-    FTPSession::FTPSession(FTPSession &&other)
-        : hostname(std::move(other.hostname)),
-          port(other.port),
-          username(std::move(other.username)),
-          password(std::move(other.password)),
-          controlSock(other.controlSock),
-          isConnected(other.isConnected),
-          autoKeepAlive(other.autoKeepAlive)
-    {
-        other.isConnected = false;
-        other.controlSock = INVALID_SOCKET;
-        this->initialize();
-    }
-
-    FTPSession &FTPSession::operator=(FTPSession &&other)
-    {
-        this->quit();
-        hostname = std::move(other.hostname);
-        port = other.port;
-        username = std::move(other.username);
-        password = std::move(other.password);
-        controlSock = other.controlSock;
-        isConnected = other.isConnected;
-        autoKeepAlive = other.autoKeepAlive;
-        other.isConnected = false;
-        other.controlSock = INVALID_SOCKET;
-        this->initialize();
-        return *this;
-    }
-
     void FTPSession::sendNoop()
     {
         utils::asyncAwait([this]() {
