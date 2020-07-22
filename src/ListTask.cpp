@@ -77,8 +77,8 @@ namespace ftpclient
     ListTask::Res ListTask::requestForList(std::string &errorMsg)
     {
         std::string recvErrorMsg;
-        auto res =
-            requestToListOnServer(session.getControlSock(), dir, recvErrorMsg);
+        auto res = requestToListOnServer(session.getControlSock(), dir,
+                                         isNameList, recvErrorMsg);
         if (res == CmdToServerRet::SUCCEEDED)
             return this->getListRawData(errorMsg);
         else if (res == CmdToServerRet::FAILED_WITH_MSG)
@@ -92,7 +92,7 @@ namespace ftpclient
 
     ListTask::Res ListTask::getListRawData(std::string &errorMsg)
     {
-        auto closeDataSock = [&]() {
+        auto closeDataSock = [this]() {
             closesocket(dataSock);
             dataSock = INVALID_SOCKET;
             isConnect = false;
@@ -119,7 +119,8 @@ namespace ftpclient
         if (recvLen <= 0)
             return Res::FAILED;
         //正常为 226 Successfully transferred "dir"
-        if (!std::regex_search(recvMsg, std::regex(R"(^226.*)")))
+        //检查返回码是否为226或250
+        if (!std::regex_search(recvMsg, std::regex(R"(^(226|250).*)")))
         {
             errorMsg = std::move(recvMsg);
             return Res::FAILED_WITH_MSG;

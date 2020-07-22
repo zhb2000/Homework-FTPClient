@@ -247,15 +247,17 @@ namespace ftpclient
                                       std::string &errorMsg);
 
     /**
-     * @brief 向服务器发 LIST 命令，请求获取目录文件
+     * @brief 向服务器发 LIST 或 NLST 命令，请求获取目录文件
      * @author zhb
      * @param controlSock 控制连接
      * @param dir 目录名
+     * @param isNameList 只获取文件名
      * @param errorMsg 出口参数，来自服务器的错误信息
      * @return 结果状态码
      */
     CmdToServerRet requestToListOnServer(SOCKET controlSock,
                                          const std::string &dir,
+                                         bool isNameList,
                                          std::string &errorMsg);
 
     enum class UploadFileDataRes

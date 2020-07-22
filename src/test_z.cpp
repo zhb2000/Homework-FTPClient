@@ -183,21 +183,21 @@ void test_z()
     QObject::connect(se, &FTPSession::listDirFailed,
                      []() { qDebug("listDirFailed"); });
 
-    UploadFileTask *task = nullptr;
+    // UploadFileTask *task = nullptr;
 
-    QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
-#ifndef DISABLED_CODE
+    QObject::connect(se, &FTPSession::loginSucceeded, [&]() {
+        //#ifndef DISABLED_CODE
         //下一步
         se->listWorkingDir();
-#endif
+        //#endif
 
-        //#ifndef DISABLED_CODE
+#ifndef DISABLED_CODE
         // 下一步上传文件
         task = new UploadFileTask(*se, remoteFilepath, ifs); // new a task
         // connect signals for task
         connectUploadSignals(task);
         task->resume(10);
-        //#endif
+#endif
     });
 
     // test starts

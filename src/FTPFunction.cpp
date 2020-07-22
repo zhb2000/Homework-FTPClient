@@ -263,8 +263,8 @@ namespace ftpclient
             (isAppend ? "APPE " : "STOR ") + remoteFilename + "\r\n";
         std::string recvMsg;
         //正常为"150 Opening data connection."
-        //检查返回码是否为150
-        std::regex e(R"(^150\s+)");
+        //检查返回码是否为150或125
+        std::regex e(R"(^(150|125)\s+)");
         auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
         if (ret == CmdToServerRet::FAILED_WITH_MSG)
             errorMsg = std::move(recvMsg);
@@ -434,13 +434,14 @@ namespace ftpclient
 
     CmdToServerRet requestToListOnServer(SOCKET controlSock,
                                          const std::string &dir,
-                                         std::string &errorMsg)
+                                         bool isNameList, std::string &errorMsg)
     {
         //命令"LIST dir\r\n"
-        std::string sendCmd = "LIST " + dir + "\r\n";
+        std::string sendCmd = (isNameList ? "NLST " : "LIST ") + dir + "\r\n";
         std::string recvMsg;
         //正常为 150 Opening data channel for directory listing of "dir"
-        std::regex e(R"(^150\s+)");
+        //检查返回码是否为150或125
+        std::regex e(R"(^(150|125)\s+)");
         auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
         if (ret == CmdToServerRet::FAILED_WITH_MSG)
             errorMsg = std::move(recvMsg);

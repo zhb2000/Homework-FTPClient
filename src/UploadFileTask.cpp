@@ -32,8 +32,8 @@ namespace
         if (iResult <= 0)
             return RecvMsgAfterUpRes::FAILED;
         // 226 Successfully transferred "filename"
-        //检查返回码是否为226
-        if (!std::regex_search(recvMsg, std::regex(R"(^226.*)")))
+        //检查返回码是否为226或250
+        if (!std::regex_search(recvMsg, std::regex(R"(^(226|250).*)")))
         {
             errorMsg = std::move(recvMsg);
             return RecvMsgAfterUpRes::FAILED_WITH_MSG;
@@ -117,8 +117,8 @@ namespace ftpclient
             send(session.getControlSock(), sendCmd.c_str(), sendCmd.length(),
                  0);
             std::string recvMsg;
-            //两种情况：1. 服务器返回 226；2. 服务器先返回 426，再返回 226
-            //为了省事这里不检查返回码，只是把缓冲区中的消息吃掉
+            //两种情况：1. 服务器返回 226/225；2. 服务器先返回 426，再返回
+            //226/225 为了省事这里不检查返回码，只是把缓冲区中的消息吃掉
             recvMultipleMsg(session.getControlSock(), std::regex("."), recvMsg);
         });
         //关闭数据连接和控制连接
