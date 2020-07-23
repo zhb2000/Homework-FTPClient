@@ -19,20 +19,28 @@ DEFINES += QT_DEPRECATED_WARNINGS
 LIBS += -lws2_32
 
 SOURCES += \
+    src/ListTask.cpp \
     src/MyUtils.cpp \
     src/UploadFileTask.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
     src/FTPSession.cpp \
-    src/FTPFunction.cpp
+    src/FTPFunction.cpp \
+    src/test_z.cpp \
+    src/DownloadFileTask.cpp \
+    ui/UserInteraction.cpp
 
 HEADERS += \
+    include/ListTask.h \
     include/MyUtils.h \
+    include/RunAsyncAwait.h \
     include/UploadFileTask.h \
     include/mainwindow.h \
     include/ScopeGuard.h \
     include/FTPSession.h \
-    include/FTPFunction.h
+    include/FTPFunction.h \
+    include/DownloadFileTask.h \
+    include/UserInteraction.h
 
 FORMS += \
     ui/mainwindow.ui
@@ -41,3 +49,8 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+DISTFILES +=
+
+RESOURCES += \
+    ui/Resource.qrc

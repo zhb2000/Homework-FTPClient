@@ -1,6 +1,7 @@
 #include "../include/FTPFunction.h"
 #include "../include/MyUtils.h"
 #include "../include/ScopeGuard.h"
+#include <QtDebug>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -13,25 +14,39 @@ using utils::ScopeGuard;
 namespace
 {
     /**
-     * @brief 设置阻塞式send和recv的超时时间
+     * @brief 设置阻塞式send()的超时时间
      * @author zhb
      * @param sock 被设置的socket
-     * @param sendTimeout 阻塞式send的超时时间(ms)
-     * @param recvTimeout 阻塞式recv的超时时间(ms)
+     * @param timeout 超时时间(ms)
      * @return 设置是否成功
      */
-    bool setSendRecvTimeout(SOCKET sock, int sendTimeout, int recvTimeout)
+    bool setSendTimeout(SOCKET sock, int timeout)
     {
         int iResult;
         iResult = setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO,
-                             (const char *)&sendTimeout, sizeof(sendTimeout));
+                             (const char *)&timeout, sizeof(timeout));
         if (iResult != 0)
             return false;
+        else
+            return true;
+    }
+
+    /**
+     * @brief 设置阻塞式recv()的超时时间
+     * @author zhb
+     * @param sock 被设置的socket
+     * @param timeout 超时时间(ms)
+     * @return 设置是否成功
+     */
+    bool setRecvTimeout(SOCKET sock, int timeout)
+    {
+        int iResult;
         iResult = setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
-                             (const char *)&recvTimeout, sizeof(recvTimeout));
+                             (const char *)&timeout, sizeof(timeout));
         if (iResult != 0)
             return false;
-        return true;
+        else
+            return true;
     }
 } // namespace
 
@@ -39,8 +54,9 @@ namespace ftpclient
 {
 
     ConnectToServerRes connectToServer(SOCKET &sock,
-                                       const std::string &hostName,
-                                       const std::string &port)
+                                       const std::string &hostname,
+                                       const std::string &port, int sendTimeout,
+                                       int recvTimeout)
     {
         WSADATA wsaData;
         int iResult;
@@ -58,7 +74,7 @@ namespace ftpclient
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_protocol = IPPROTO_TCP;
         //设定服务器地址和端口号
-        iResult = getaddrinfo(hostName.c_str(), port.c_str(), &hints, &result);
+        iResult = getaddrinfo(hostname.c_str(), port.c_str(), &hints, &result);
         if (iResult != 0)
             return ConnectToServerRes::getaddrinfo_FAILED;
         ScopeGuard guardFreeAddrinfo([=]() { freeaddrinfo(result); });
@@ -86,151 +102,379 @@ namespace ftpclient
             return ConnectToServerRes::UNABLE_TO_CONNECT_TO_SERVER;
         else
         {
-            setSendRecvTimeout(sock, 5000, 5000);
+            if (sendTimeout >= 0)
+                setSendTimeout(sock, sendTimeout);
+            if (recvTimeout >= 0)
+                setRecvTimeout(sock, recvTimeout);
             guardCleanWSA.dismiss();
             return ConnectToServerRes::SUCCEEDED;
         }
     }
 
-    LoginToServerRes loginToServer(SOCKET controlSock,
-                                   const std::string &userName,
-                                   const std::string &password,
-                                   std::string &errorMsg)
+    RecvMultRes recvMultipleMsg(SOCKET controlSock,
+                                const std::regex &matchRegex, std::string &msg)
     {
-        const int sendBufLen = 1024;
-        const int recvBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
-
+        msg.clear();
+        std::string recvMsg; //一条FTP消息
+        bool hasMsg = false;
         int iResult;
-        //命令 "USER username\r\n"
-        sprintf(sendBuffer.get(), "USER %s\r\n", userName.c_str());
-        //客户端发送用户名到服务器端
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return LoginToServerRes::SEND_FAILED;
-        //客户端接收服务器的响应码和信息
-        //正常为"331 User name okay, need password."
-        iResult = recv(controlSock, recvBuffer.get(), recvBufLen, 0);
-        if (iResult == SOCKET_ERROR)
-            return LoginToServerRes::RECV_FAILED;
-        //检查返回码是否为331
-        if (!std::regex_search(recvBuffer.get(), recvBuffer.get() + iResult,
-                               std::regex(R"(331.*)")))
-        {
-            errorMsg = std::string(recvBuffer.get(), iResult);
-            return LoginToServerRes::LOGIN_FAILED;
-        }
-
-        // 命令 "PASS password\r\n"
-        sprintf(sendBuffer.get(), "PASS %s\r\n", password.c_str());
-        //客户端发送密码到服务器端
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return LoginToServerRes::SEND_FAILED;
-        //客户端接收服务器的响应码和信息
-        //正常为"230 User logged in, proceed."
-        iResult = recv(controlSock, recvBuffer.get(), recvBufLen, 0);
-        if (iResult <= 0)
-            return LoginToServerRes::RECV_FAILED;
-        //检查返回码是否为230
-        if (!std::regex_search(recvBuffer.get(), recvBuffer.get() + iResult,
-                               std::regex(R"(230.*)")))
-        {
-            errorMsg = std::string(recvBuffer.get(), iResult);
-            return LoginToServerRes::LOGIN_FAILED;
-        }
-
-        return LoginToServerRes::SUCCEEDED;
-    }
-
-    PutPasvModeRes putServerIntoPasvMode(SOCKET controlSock, int &port,
-                                         std::string &errorMsg)
-    {
-        const int sendBufLen = 1024;
-        const int recvBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
-
-        int iResult;
-        //命令"PASV\r\n"
-        sprintf(sendBuffer.get(), "PASV\r\n");
-        //客户端告诉服务器用被动模式
-        iResult = send(controlSock, sendBuffer.get(),
-                       (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return PutPasvModeRes::SEND_FAILED;
-        //客户端接收服务器的响应码和新开的端口号
-        //正常为"227 Entering passive mode (h1,h2,h3,h4,p1,p2)"
-        iResult = recv(controlSock, recvBuffer.get(), recvBufLen, 0);
-        if (iResult <= 0)
-            return PutPasvModeRes::RECV_FAILED;
-        //检查返回码是否为227
-        if (!std::regex_search(
-                recvBuffer.get(), recvBuffer.get() + iResult,
-                std::regex(R"(227.*\(\d+,\d+,\d+,\d+,\d+,\d+\)[.\r\n]*)")))
-        {
-            errorMsg = std::string(recvBuffer.get(), iResult);
-            return PutPasvModeRes::FAILED;
-        }
-
-        int p1, p2;
-        std::tie(p1, p2) =
-            utils::getPortFromStr(std::string(recvBuffer.get(), iResult));
-        port = p1 * 256 + p2;
-        return PutPasvModeRes::SUCCEEDED;
-    }
-
-    UploadToServerRes uploadFileToServer(SOCKET dataSock,
-                                         const std::string &remoteFileName,
-                                         std::ifstream &ifs,
-                                         std::string &errorMsg)
-    {
-        const int sendBufLen = 1024;
-        const int recvBufLen = 1024;
-        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
-
-        int iResult;
-        //命令"STOR filename\r\n"
-        sprintf(sendBuffer.get(), "STOR %s\r\n", remoteFileName.c_str());
-        //客户端发送命令上传文件到服务器端
-        iResult =
-            send(dataSock, sendBuffer.get(), (int)strlen(sendBuffer.get()), 0);
-        if (iResult == SOCKET_ERROR)
-            return UploadToServerRes::SEND_FAILED;
-
-        //客户端接收服务器的响应码和信息
-        //正常为"150 Opening data connection."
-        iResult = recv(dataSock, recvBuffer.get(), recvBufLen, 0);
-        if (iResult <= 0)
-            return UploadToServerRes::RECV_FAILED;
-        //检查返回码是否为150
-        if (!std::regex_search(recvBuffer.get(), recvBuffer.get() + iResult,
-                               std::regex(R"(150.*)")))
-        {
-            errorMsg = std::string(recvBuffer.get(), iResult);
-            return UploadToServerRes::FAILED_WITH_MSG;
-        }
-
-        //开始上传文件
         while (true)
         {
-            //客户端读文件，读取一块
-            ifs.read(sendBuffer.get(), sendBufLen);
-            iResult = send(dataSock, sendBuffer.get(), ifs.gcount(), 0);
-            if (iResult == SOCKET_ERROR)
-                return UploadToServerRes::SEND_FAILED;
-            if (ifs.rdstate() == std::ios_base::goodbit)
-                continue; //无错误
-            else if (ifs.rdstate() == std::ios_base::eofbit)
-                break; //关联的输出序列已抵达文件尾
+            recvMsg.clear();
+            iResult = utils::recvFtpMsg(controlSock, recvMsg);
+            if (iResult > 0)
+            {
+                //检查返回码
+                if (!std::regex_search(recvMsg, matchRegex))
+                {
+                    msg = std::move(recvMsg);
+                    return RecvMultRes::FAILED_WITH_MSG;
+                }
+                else
+                {
+                    hasMsg = true;
+                    msg += recvMsg;
+                }
+            }
             else
-                return UploadToServerRes::READ_FILE_ERROR;
+            {
+                int errorCode = WSAGetLastError();
+                if (iResult < 0 && errorCode != WSAETIMEDOUT)
+                    return RecvMultRes::FAILED;
+                else
+                    break;
+            }
         }
-        return UploadToServerRes::SUCCEEDED;
+        return hasMsg ? RecvMultRes::SUCCEEDED : RecvMultRes::FAILED;
+    }
+
+    RecvMultRes recvWelcomMsg(SOCKET controlSock, std::string &msg)
+    {
+        return recvMultipleMsg(controlSock, std::regex(R"(^220[-\s]+)"), msg);
+    }
+
+    RecvMultRes recvLoginSucceededMsg(SOCKET controlSock, std::string &msg)
+    {
+        return recvMultipleMsg(controlSock, std::regex(R"(^230[-\s])"), msg);
+    }
+
+    CmdToServerRet cmdToServer(SOCKET controlSock, const std::string &sendCmd,
+                               const std::regex &matchRegex,
+                               std::string &recvMsg)
+    {
+        int iResult;
+        //向服务器发送命令
+        iResult = send(controlSock, sendCmd.c_str(), sendCmd.length(), 0);
+        if (iResult == SOCKET_ERROR)
+            return CmdToServerRet::SEND_FAILED;
+        //接收服务器响应码和信息
+        iResult = utils::recvFtpMsg(controlSock, recvMsg);
+        if (iResult <= 0)
+            return CmdToServerRet::RECV_FAILED;
+        //检查响应码和信息是否符合要求
+        if (!std::regex_search(recvMsg, matchRegex))
+            return CmdToServerRet::FAILED_WITH_MSG;
+        return CmdToServerRet::SUCCEEDED;
+    }
+
+    CmdToServerRet loginToServer(SOCKET controlSock,
+                                 const std::string &username,
+                                 const std::string &password,
+                                 std::string &errorMsg)
+    {
+        //命令 "USER username\r\n"
+        std::string userCmd = "USER " + username + "\r\n";
+        std::string recvMsg;
+        //正常为"331 User name okay, need password."
+        //返回码是否为331
+        std::regex userRegex(R"(331\s.*)");
+        auto ret = cmdToServer(controlSock, userCmd, userRegex, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+        {
+            // 命令 "PASS password\r\n"
+            std::string passCmd = "PASS " + password + "\r\n";
+            //向服务器发送命令
+            int iResult =
+                send(controlSock, passCmd.c_str(), passCmd.length(), 0);
+            if (iResult == SOCKET_ERROR)
+                return CmdToServerRet::SEND_FAILED;
+            //返回的消息可能有多条
+            auto passRes = recvLoginSucceededMsg(controlSock, recvMsg);
+            if (passRes == RecvMultRes::SUCCEEDED)
+                return CmdToServerRet::SUCCEEDED;
+            else if (passRes == RecvMultRes::FAILED_WITH_MSG)
+            {
+                errorMsg = std::move(recvMsg);
+                return CmdToServerRet::FAILED_WITH_MSG;
+            }
+            else
+                return CmdToServerRet::RECV_FAILED;
+        }
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+        {
+            errorMsg = std::move(recvMsg);
+            return ret;
+        }
+        else
+            return ret;
+    }
+
+    CmdToServerRet putServerIntoPasvMode(SOCKET controlSock, int &port,
+                                         std::string &hostname,
+                                         std::string &errorMsg)
+    {
+        //命令"PASV\r\n"
+        std::string sendCmd = "PASV\r\n";
+        std::string recvMsg;
+        //正常为"227 Entering passive mode (h1,h2,h3,h4,p1,p2)"
+        //检查返回码是否为227
+        std::regex e(R"(^227\s.*\(\d+,\d+,\d+,\d+,\d+,\d+\))");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            std::tie(hostname, port) = utils::getIPAndPortForPSAV(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet putServerIntoEpsvMode(SOCKET controlSock, int &port,
+                                         std::string &errorMsg)
+    {
+        //命令"EPSV\r\n"
+        std::string sendCmd = "EPSV\r\n";
+        std::string recvMsg;
+        //正常为"229 Entering Extended Passive Mode (|||port|)"
+        //检查返回码是否为229
+        std::regex e(R"(^229\s.*\(\|\|\|\d+\|\))");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            port = utils::getPortForEPSV(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet requestToUploadToServer(SOCKET controlSock, bool isAppend,
+                                           const std::string &remoteFilename,
+                                           std::string &errorMsg)
+    {
+        //命令"STOR filename\r\n" 或 "APPE filename\r\n"
+        std::string sendCmd =
+            (isAppend ? "APPE " : "STOR ") + remoteFilename + "\r\n";
+        std::string recvMsg;
+        //正常为"150 Opening data connection."
+        //检查返回码是否为150或125
+        std::regex e(R"(^(150|125)\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet getFilesizeOnServer(SOCKET controlSock,
+                                       const std::string &filename,
+                                       long long &filesize,
+                                       std::string &errorMsg)
+    {
+        //命令"SIZE filename\r\n"
+        std::string sendCmd = "SIZE " + filename + "\r\n";
+        //检查返回码是否为"213 size"
+        std::regex e(R"(^213\s+\d+)");
+        std::string recvMsg;
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            filesize = utils::getSizeFromMsg(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet getWorkingDirectory(SOCKET controlSock, std::string &dir,
+                                       std::string &errorMsg)
+    {
+        //命令"PWD\r\n"
+        std::string sendCmd = "PWD\r\n";
+        std::string recvMsg;
+        //正常为 257 "dir" is current directory.
+        //检查返回码是否为257
+        std::regex e(R"(^257\s+".+")");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+            dir = utils::getDirFromMsg(recvMsg);
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet changeWorkingDirectory(SOCKET controlSock,
+                                          const std::string &dir,
+                                          std::string &errorMsg)
+    {
+        //命令"CWD dir\r\n"
+        std::string sendCmd = "CWD " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为"250 CWD successful"
+        //检查返回码是否为250
+        std::regex e(R"(^250\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet setBinaryOrAsciiTransferMode(SOCKET controlSock,
+                                                bool binaryMode,
+                                                std::string &errorMsg)
+    {
+        //命令"TYPE I\r\n"或"TYPE A\r\n";
+        std::string param = binaryMode ? "I" : "A";
+        std::string sendCmd = "TYPE " + param + "\r\n";
+        std::string recvMsg;
+        //正常为"200 Type set to mode"
+        //检查返回码是否为200
+        std::regex e(R"(^200\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet sendNoopToServer(SOCKET controlSock, std::string &errorMsg)
+    {
+        //命令"NOOP\r\n"
+        std::string sendCmd = "NOOP\r\n";
+        std::string recvMsg;
+        //正常为"200 OK"
+        //检查返回码是否为200
+        std::regex e(R"(^200\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet deleteFileOnServer(SOCKET controlSock,
+                                      const std::string &filename,
+                                      std::string &errorMsg)
+    {
+        //命令"DELE filename\r\n"
+        std::string sendCmd = "DELE " + filename + "\r\n";
+        std::string recvMsg;
+        //正常为"250 File deleted successfully"
+        //检查返回码是否为250
+        std::regex e(R"(^250\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet makeDirectoryOnServer(SOCKET controlSock,
+                                         const std::string &dir,
+                                         std::string &errorMsg)
+    {
+        //命令"MKD dir\r\n"
+        std::string sendCmd = "MKD " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为 257 "dir" created successfully
+        //检查返回码是否为257
+        std::regex e(R"(^257\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet removeDirectoryOnServer(SOCKET controlSock,
+                                           const std::string &dir,
+                                           std::string &errorMsg)
+    {
+        //命令"RMD dir\r\n"
+        std::string sendCmd = "RMD " + dir + "\r\n";
+        std::string recvMsg;
+        //正常为"250 Directory deleted successfully"
+        //检查返回码是否为250
+        std::regex e(R"(^250\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet renameFileOnServer(SOCKET controlSock,
+                                      const std::string &oldName,
+                                      const std::string &newName,
+                                      std::string &errorMsg)
+    {
+        std::string recvMsg;
+        //命令"RNFR filename\r\n"
+        std::string rnfrCmd = "RNFR " + oldName + "\r\n";
+        //正常为"350 File exists, ready for destination name."
+        std::regex rnfrE(R"(^350\s+)");
+        auto ret = cmdToServer(controlSock, rnfrCmd, rnfrE, recvMsg);
+        if (ret == CmdToServerRet::SUCCEEDED)
+        {
+            //命令"RNTO filename\r\n"
+            std::string rntoCmd = "RNTO " + newName + "\r\n";
+            //正常为"250 file renamed successfully"
+            std::regex rntoE(R"(^250\s+)");
+            ret = cmdToServer(controlSock, rntoCmd, rntoE, errorMsg);
+            if (ret == CmdToServerRet::FAILED_WITH_MSG)
+                errorMsg = std::move(recvMsg);
+            return ret;
+        }
+        else if (ret == CmdToServerRet::FAILED_WITH_MSG)
+        {
+            errorMsg = std::move(recvMsg);
+            return ret;
+        }
+        else
+            return ret;
+    }
+
+    CmdToServerRet requestToListOnServer(SOCKET controlSock,
+                                         const std::string &dir,
+                                         bool isNameList, std::string &errorMsg)
+    {
+        //命令"LIST dir\r\n"
+        std::string sendCmd = (isNameList ? "NLST " : "LIST ") + dir + "\r\n";
+        std::string recvMsg;
+        //正常为 150 Opening data channel for directory listing of "dir"
+        //检查返回码是否为150或125
+        std::regex e(R"(^(150|125)\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
+                                             std::ifstream &ifs, int &percent)
+    {
+        if (!ifs.is_open())
+            return UploadFileDataRes::READ_FILE_ERROR;
+        long long filesize = utils::getFilesize(ifs);
+        long long totalSend = ifs.tellg(); //已发送的字节总数
+        const int sendBufLen = 1024;
+        unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
+        std::string recvMsg;
+        int iResult;
+        //开始上传文件
+        while (!ifs.eof())
+        {
+            ifs.read(sendBuffer.get(), sendBufLen); //客户端读文件，读取一块
+            int readLen = int(ifs.gcount());        //刚刚读取的字节数
+            iResult = send(dataSock, sendBuffer.get(), readLen, 0);
+            if (iResult == SOCKET_ERROR)
+                return UploadFileDataRes::SEND_FAILED;
+            else
+            {
+                totalSend += readLen;
+                percent = int(totalSend * 100 / filesize);
+            }
+        }
+
+        return UploadFileDataRes::SUCCEEDED;
     }
 
 } // namespace ftpclient

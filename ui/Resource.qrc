@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>FTPicon.ico</file>
+    </qresource>
+</RCC>

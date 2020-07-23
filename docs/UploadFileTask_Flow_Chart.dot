@@ -1,0 +1,87 @@
+digraph G {
+    node [shape=box fontname="SimHei"];
+    edge [fontname="SimHei"]
+    createobj [label="创建对象" shape=ellipse]
+    newctrl [label="新建一个控制连接"]
+    success0 [label="成功?" shape=diamond]
+    newctrlfailsig [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
+    fail0 [label="任务失败" shape=ellipse]
+    putpasv [label="切换到被动模式"]
+    success1 [label="成功?" shape=diamond]
+    putpasvfail [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
+    fail1 [label="任务失败" shape=ellipse]
+    dataconnect [label="与服务器建立数据连接"]
+    success2 [label="成功?" shape=diamond]
+    connectfail [label="发射信号\nuploadFailed" shape=note]
+    fail2 [label="任务失败" shape=ellipse]
+    sendstor [label="控制连接发STOR/APPE请求上传"]
+    success3 [label="同意上传?" shape=diamond]
+    storfail [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
+    fail3 [label="任务失败" shape=ellipse]
+    startsignal [label="发射信号\nuploadStarted" shape=note]
+    transdata [label="上传文件内容"]
+    recvafterup [label="接收服务器消息"]
+    success4 [label="上传成功?" shape=diamond]
+    recvafterupfail [label="发射信号\nuploadFailed 或\nuploadFailedWithMsg(msg)" shape=note]
+    upsuccess [label="发射信号\nuploadSucceeded" shape=note]
+    end [label="任务成功" shape=ellipse]
+    stopup [label="中止上传"]
+    terminate [label="任务中止" shape=ellipse]
+    updateper [label="发射信号\nuploadPercentage(percent)" shape=note]
+    fileerror [label="发射信号\nreadFileError" shape=note]
+    fail4 [label="任务失败" shape=ellipse]
+    fail5 [label="任务失败" shape=ellipse]
+    
+    rankdir=TB
+    createobj->newctrl [label="调用start()或resume()"]
+    newctrl->success0
+    {
+        rank=same
+        fail0->newctrlfailsig [dir=back]
+        newctrlfailsig->success0 [dir=back label="No"]
+    }
+    success0->putpasv [label="Yes"]
+    putpasv->success1
+    success1->dataconnect [label="Yes"]
+    {
+        rank=same
+        putpasvfail->success1 [dir=back label="No"]
+        fail1->putpasvfail [dir=back]
+    }
+    dataconnect->success2
+    success2->sendstor [label="Yes"]
+    {
+        rank=same
+        fail2->connectfail [dir=back]
+        connectfail->success2 [dir=back label="No"]
+    }
+    sendstor->success3
+    success3->startsignal [label="Yes"]
+    startsignal->transdata
+    {
+        rank=same
+        fail3->storfail [dir=back]
+        storfail->success3 [label="No" dir=back]
+    }
+    stopup->terminate
+    transdata->stopup [label="调用 stop()"]
+    transdata->recvafterup [label="上传结束"]
+    recvafterup->success4
+    success4->upsuccess [label="Yes"]
+    {
+        rank=same
+        success4->recvafterupfail [label="No"]
+    }
+    recvafterupfail->fail5
+    upsuccess->end
+    {
+        rank=same
+        transdata->updateper [dir=both label="更新上传百分比" style=dashed]
+    }
+    {
+        rank=same
+        fail4->fileerror [dir=back]
+        fileerror->transdata [dir=back label="读取文件错误"]
+    }
+
+}
