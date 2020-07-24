@@ -154,8 +154,6 @@ namespace ftpclient
         /**
          * @brief 关闭控制端口的连接
          * @author zhb
-         *
-         * 尚未完成
          */
         void quit();
 

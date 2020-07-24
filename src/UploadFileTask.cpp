@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QFuture>
 #include <QtConcurrent/QtConcurrent>
+#include <QtDebug>
 #include <memory>
 #include <regex>
 
@@ -48,12 +49,14 @@ namespace ftpclient
     const int UploadFileTask::SOCKET_SEND_TIMEOUT;
     const int UploadFileTask::SOCKET_RECV_TIMEOUT;
 
-    UploadFileTask::UploadFileTask(FTPSession &session, std::string filepath,
-                                   std::ifstream &ifs)
+    UploadFileTask::UploadFileTask(FTPSession &session,
+                                   const std::string &localFilepath,
+                                   const std::string &remoteFilepath)
         : session(session.getHostname(), session.getUsername(),
                   session.getPassword(), session.getPort(), false),
-          remoteFilepath(std::move(filepath)),
-          ifs(ifs),
+          localFilepath(localFilepath),
+          remoteFilepath(remoteFilepath),
+          ifs(localFilepath, std::ios_base::in | std::ios_base::binary),
           dataSock(INVALID_SOCKET),
           isDataConnected(false),
           isSetStop(false),
@@ -95,17 +98,42 @@ namespace ftpclient
                          });
         QObject::connect(&session, &FTPSession::setTransferModeFailed,
                          [this]() { emit uploadFailed(); });
-        //传输模式设置成功，接下来按照既定流程自动进行
+        //传输模式设置成功
+        //若为续传，先获取文件大小
+        //若非续传，按照既定流程进行
         QObject::connect(&session, &FTPSession::setTransferModeSucceeded,
-                         [this]() { this->enterPassiveMode(); });
+                         [this]() {
+                             if (isAppend)
+                                 session.getFilesize(remoteFilepath);
+                             else
+                                 this->enterPassiveMode();
+                         });
+        QObject::connect(&session, &FTPSession::getFilesizeFailed,
+                         [this]() { emit uploadFailed(); });
+        QObject::connect(&session, &FTPSession::getFilesizeFailedWithMsg,
+                         [this](std::string msg) {
+                             emit uploadFailedWithMsg(std::move(msg));
+                         });
+        //文件大小获取成功，按照既定流程进行
+        QObject::connect(&session, &FTPSession::getFilesizeSucceeded,
+                         [this](long long filesize) {
+                             this->uploadOffset = filesize;
+                             ifs.seekg(uploadOffset);
+                             this->enterPassiveMode();
+                         });
     }
 
-    void UploadFileTask::start() { session.connectAndLogin(); }
+    void UploadFileTask::start()
+    {
+        isAppend = false;
+        isSetStop = false;
+        session.connectAndLogin();
+    }
 
-    void UploadFileTask::resume(long long uploadedSize)
+    void UploadFileTask::resume()
     {
         isAppend = true;
-        ifs.seekg(uploadedSize);
+        isSetStop = false;
         session.connectAndLogin();
     }
 
@@ -118,7 +146,7 @@ namespace ftpclient
                  0);
             std::string recvMsg;
             //两种情况：1. 服务器返回 226/225；2. 服务器先返回 426，再返回
-            //226/225 为了省事这里不检查返回码，只是把缓冲区中的消息吃掉
+            // 226/225 为了省事这里不检查返回码，只是把缓冲区中的消息吃掉
             recvMultipleMsg(session.getControlSock(), std::regex("."), recvMsg);
         });
         //关闭数据连接和控制连接

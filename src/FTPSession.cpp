@@ -133,11 +133,12 @@ namespace ftpclient
     {
         long long filesize;
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>([&]() {
-            LockGuard guard(sockMutex);
-            return getFilesizeOnServer(controlSock, filename, filesize,
-                                       errorMsg);
-        });
+        auto res = utils::asyncAwait<CmdToServerRet>(
+            [this, &filename, &filesize, &errorMsg]() {
+                LockGuard guard(sockMutex);
+                return getFilesizeOnServer(controlSock, filename, filesize,
+                                           errorMsg);
+            });
         if (res == CmdToServerRet::SUCCEEDED)
             emit getFilesizeSucceeded(filesize);
         else if (res == CmdToServerRet::FAILED_WITH_MSG)
@@ -156,7 +157,7 @@ namespace ftpclient
     {
         std::string dir;
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>([&]() {
+        auto res = utils::asyncAwait<CmdToServerRet>([this, &dir, &errorMsg]() {
             LockGuard guard(sockMutex);
             return getWorkingDirectory(controlSock, dir, errorMsg);
         });
@@ -177,7 +178,7 @@ namespace ftpclient
     void FTPSession::changeDir(const std::string &dir)
     {
         runProcedure(
-            [&dir, this](std::string &msg) {
+            [this, &dir](std::string &msg) {
                 LockGuard guard(sockMutex);
                 return changeWorkingDirectory(controlSock, dir, msg);
             },
@@ -188,11 +189,12 @@ namespace ftpclient
     void FTPSession::setTransferMode(bool binaryMode)
     {
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>([&]() {
-            LockGuard guard(sockMutex);
-            return setBinaryOrAsciiTransferMode(controlSock, binaryMode,
-                                                errorMsg);
-        });
+        auto res =
+            utils::asyncAwait<CmdToServerRet>([this, binaryMode, &errorMsg]() {
+                LockGuard guard(sockMutex);
+                return setBinaryOrAsciiTransferMode(controlSock, binaryMode,
+                                                    errorMsg);
+            });
         if (res == CmdToServerRet::SUCCEEDED)
             emit setTransferModeSucceeded(binaryMode);
         else if (res == CmdToServerRet::FAILED_WITH_MSG)
@@ -210,7 +212,7 @@ namespace ftpclient
     void FTPSession::deleteFile(const std::string &filename)
     {
         runProcedure(
-            [&filename, this](std::string &msg) {
+            [this, &filename](std::string &msg) {
                 LockGuard guard(sockMutex);
                 return deleteFileOnServer(controlSock, filename, msg);
             },
@@ -222,7 +224,7 @@ namespace ftpclient
     void FTPSession::makeDir(const std::string &dir)
     {
         runProcedure(
-            [&dir, this](std::string &msg) {
+            [this, &dir](std::string &msg) {
                 LockGuard guard(sockMutex);
                 return makeDirectoryOnServer(controlSock, dir, msg);
             },
@@ -233,7 +235,7 @@ namespace ftpclient
     void FTPSession::removeDir(const std::string &dir)
     {
         runProcedure(
-            [&dir, this](std::string &msg) {
+            [this, &dir](std::string &msg) {
                 LockGuard guard(sockMutex);
                 return removeDirectoryOnServer(controlSock, dir, msg);
             },
@@ -245,7 +247,7 @@ namespace ftpclient
                                 const std::string &newName)
     {
         runProcedure(
-            [&](std::string &msg) {
+            [this, &oldName, &newName](std::string &msg) {
                 LockGuard guard(sockMutex);
                 return renameFileOnServer(controlSock, oldName, newName, msg);
             },
@@ -258,11 +260,12 @@ namespace ftpclient
     {
         std::string errorMsg;
         std::vector<std::string> listStrings;
-        auto res = utils::asyncAwait<ListTask::Res>([&]() {
-            LockGuard guard(sockMutex);
-            ListTask task(*this, ".", isNameList);
-            return task.getListStrings(listStrings, errorMsg);
-        });
+        auto res = utils::asyncAwait<ListTask::Res>(
+            [this, isNameList, &errorMsg, &listStrings]() {
+                LockGuard guard(sockMutex);
+                ListTask task(*this, ".", isNameList);
+                return task.getListStrings(listStrings, errorMsg);
+            });
         if (res == ListTask::Res::SUCCEEDED)
             emit listDirSucceeded(std::move(listStrings));
         else if (res == ListTask::Res::FAILED_WITH_MSG)
