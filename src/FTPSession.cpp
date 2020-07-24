@@ -55,21 +55,24 @@ namespace ftpclient
 
     void FTPSession::sendNoop()
     {
-        utils::asyncAwait([this]() {
-            if (sockMutex.try_lock())
-            {
-                std::string noopCmd = "NOOP\r\n";
-                std::string recvMsg;
-                send(controlSock, noopCmd.c_str(), noopCmd.length(), 0);
-                //正常为"200 OK"
-                //不校验返回码，只是把收到的消息吃掉
-                utils::recvFtpMsg(controlSock, recvMsg);
-                sockMutex.unlock();
-            }
-            else //此时别的线程正在发命令，因此无需用 NOOP 保活
-                return;
-        });
-        sendNoopTimer.start(SEND_NOOP_TIME);
+        if (isConnected)
+        {
+            utils::asyncAwait([this]() {
+                if (sockMutex.try_lock())
+                {
+                    std::string noopCmd = "NOOP\r\n";
+                    std::string recvMsg;
+                    send(controlSock, noopCmd.c_str(), noopCmd.length(), 0);
+                    //正常为"200 OK"
+                    //不校验返回码，只是把收到的消息吃掉
+                    utils::recvFtpMsg(controlSock, recvMsg);
+                    sockMutex.unlock();
+                }
+                else //此时别的线程正在发命令，因此无需用 NOOP 保活
+                    return;
+            });
+            sendNoopTimer.start(SEND_NOOP_TIME);
+        }
     }
 
     void FTPSession::connectAndLogin() { this->connect(); }
