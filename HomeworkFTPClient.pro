@@ -27,8 +27,7 @@ SOURCES += \
     src/FTPSession.cpp \
     src/FTPFunction.cpp \
     src/test_z.cpp \
-    src/DownloadFileTask.cpp \
-    ui/UserInteraction.cpp
+    src/DownloadFileTask.cpp
 
 HEADERS += \
     include/ListTask.h \
@@ -39,8 +38,7 @@ HEADERS += \
     include/ScopeGuard.h \
     include/FTPSession.h \
     include/FTPFunction.h \
-    include/DownloadFileTask.h \
-    include/UserInteraction.h
+    include/DownloadFileTask.h
 
 FORMS += \
     ui/mainwindow.ui

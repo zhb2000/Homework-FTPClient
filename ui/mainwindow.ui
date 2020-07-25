@@ -1181,14 +1181,14 @@
      </font>
     </property>
     <property name="text">
-     <string>删除</string>
+     <string>删除文件</string>
     </property>
    </widget>
    <widget class="QPushButton" name="newDirButton">
     <property name="geometry">
      <rect>
       <x>570</x>
-      <y>250</y>
+      <y>220</y>
       <width>80</width>
       <height>20</height>
      </rect>
@@ -1242,7 +1242,7 @@
     <property name="geometry">
      <rect>
       <x>570</x>
-      <y>160</y>
+      <y>130</y>
       <width>80</width>
       <height>20</height>
      </rect>
@@ -1260,7 +1260,7 @@
     <property name="geometry">
      <rect>
       <x>570</x>
-      <y>220</y>
+      <y>190</y>
       <width>80</width>
       <height>20</height>
      </rect>
@@ -1278,7 +1278,7 @@
     <property name="geometry">
      <rect>
       <x>570</x>
-      <y>190</y>
+      <y>160</y>
       <width>80</width>
       <height>20</height>
      </rect>
@@ -1290,6 +1290,61 @@
     </property>
     <property name="text">
      <string>文件大小</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="refreshButton">
+    <property name="geometry">
+     <rect>
+      <x>570</x>
+      <y>100</y>
+      <width>80</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Calibri</family>
+     </font>
+    </property>
+    <property name="text">
+     <string>刷新</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="removeButton">
+    <property name="geometry">
+     <rect>
+      <x>570</x>
+      <y>250</y>
+      <width>80</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Calibri</family>
+     </font>
+    </property>
+    <property name="text">
+     <string>删除目录</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="emptyButton">
+    <property name="geometry">
+     <rect>
+      <x>230</x>
+      <y>240</y>
+      <width>54</width>
+      <height>18</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Calibri</family>
+      <pointsize>8</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>EMPTY</string>
     </property>
    </widget>
   </widget>

@@ -30,8 +30,7 @@ namespace ftpclient
         //析构函数
         ~FTPSession()
         {
-            if (controlSock != INVALID_SOCKET)
-                closesocket(controlSock);
+            this->quit();
             WSACleanup();
         }
         //禁止复制
@@ -155,8 +154,6 @@ namespace ftpclient
         /**
          * @brief 关闭控制端口的连接
          * @author zhb
-         *
-         * 尚未完成
          */
         void quit();
 
@@ -383,7 +380,17 @@ namespace ftpclient
          */
         void login();
 
+        /**
+         * @brief 发送 NOOP 命令保活
+         * @author zhb
+         */
         void sendNoop();
+
+        /**
+         * @brief 构造对象时的初始化工作
+         * @author zhb
+         */
+        void initialize();
 
         std::string hostname;
         int port;
@@ -394,7 +401,9 @@ namespace ftpclient
         //控制连接是否建立
         bool isConnected;
         //每隔一段时间给服务器发 NOOP 命令
+        bool autoKeepAlive;
         QTimer sendNoopTimer;
+        //防止自动发 NOOP 的线程跟发命令的线程同时使用 socket
         std::mutex sockMutex;
 
         static const int SOCKET_SEND_TIMEOUT = 1000;

@@ -50,10 +50,6 @@ void connectUploadSignals(UploadFileTask *task)
 void test_z()
 {
     const auto &test = testcases[1];
-    string remoteFilepath = "aa/file.txt";
-    string localFilepath = "C:/Users/zhb/Desktop/ftpclient/file.txt";
-    std::ifstream ifs(localFilepath, std::ios_base::in | std::ios_base::binary);
-
     FTPSession *se =
         new FTPSession(test.hostname, test.username, test.password);
 
@@ -107,8 +103,10 @@ void test_z()
                      []() { qDebug("getDirFailed"); });
 
     // changeDir
-    QObject::connect(se, &FTPSession::changeDirSucceeded,
-                     []() { qDebug("changeDirSucceeded"); });
+    QObject::connect(se, &FTPSession::changeDirSucceeded, [se]() {
+        qDebug("changeDirSucceeded");
+        se->listWorkingDir();
+    });
     QObject::connect(se, &FTPSession::changeDirFailedWithMsg, [](string msg) {
         qDebug("changeDirFailedWithMsg");
         qDebug() << "msg: " << msg.data();
@@ -183,23 +181,17 @@ void test_z()
     QObject::connect(se, &FTPSession::listDirFailed,
                      []() { qDebug("listDirFailed"); });
 
-    UploadFileTask *task = nullptr;
-
-    QObject::connect(se, &FTPSession::setTransferModeSucceeded, [&]() {
-#ifndef DISABLED_CODE
-        //下一步
-        se->listWorkingDir();
-#endif
-
+    QObject::connect(se, &FTPSession::loginSucceeded, [se]() {
         //#ifndef DISABLED_CODE
         // 下一步上传文件
-        task = new UploadFileTask(*se, remoteFilepath, ifs); // new a task
-        // connect signals for task
+        string remoteFilepath = "aa/file.txt";
+        string localFilepath = "C:/Users/zhb/Desktop/ftpclient/file.txt";
+        UploadFileTask *task =
+            new UploadFileTask(*se, localFilepath, remoteFilepath);
         connectUploadSignals(task);
-        task->resume(10);
+        task->start();
         //#endif
     });
 
-    // test starts
     se->connectAndLogin();
 }
