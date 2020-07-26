@@ -271,17 +271,28 @@ namespace ftpclient
         return ret;
     }
 
-    CmdToServerRet
-    requestToDownloadFromServer(SOCKET controlSock, bool isReset,
-                                const std::string &remoteFilepath,
-                                std::string &errorMsg)
+    CmdToServerRet requestRetrFromFromServer(SOCKET controlSock,
+                                             const std::string &remoteFilepath,
+                                             std::string &errorMsg)
     {
-        std::string sendCmd =
-            (isReset ? "REST " : "RETR ") + remoteFilepath + "\r\n";
+        std::string sendCmd = "RETR " + remoteFilepath + "\r\n";
         std::string recvMsg;
         //正常为"150 Opening data connection."
         //检查返回码是否为150或125
         std::regex e(R"(^(150|125)\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet requestRestFromServer(SOCKET controlSock, long long offset,
+                                         std::string &errorMsg)
+    {
+        std::string sendCmd = "REST " + std::to_string(offset) + "\r\n";
+        std::string recvMsg;
+        //检查返回码是否为350
+        std::regex e(R"(^350\s+)");
         auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
         if (ret == CmdToServerRet::FAILED_WITH_MSG)
             errorMsg = std::move(recvMsg);

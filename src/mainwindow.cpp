@@ -14,19 +14,25 @@
 
 using namespace std;
 using namespace ftpclient;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow),
       qml(new QStringListModel(this))
 {
-    // initialize user interface
-    setFixedSize(675, 450);
     ui->setupUi(this);
-    ui->progressBar->setVisible(false);
     hideFTPFunction(false);
+    ui->uploadStopButton->setVisible(false);
+    ui->uploadPauseResumeButton->setVisible(false);
+    ui->uploadProgressBar->setVisible(false);
+    ui->downloadStopButton->setVisible(false);
+    ui->downloadPauseResumeButton->setVisible(false);
+    ui->downloadProgressBar->setVisible(false);
 
     // initialize listView
     ui->dir->setModel(qml.get());
+    ui->uploadListView->setModel(&uploadListModel);
+    ui->downloadListView->setModel(&downloadListModel);
 
     ui->displayingMsg->append(
         "Welcome to the FTP Client designed by ZHB and ZYC.");
@@ -37,7 +43,6 @@ MainWindow::~MainWindow() { delete ui; }
 
 void MainWindow::hideFTPFunction(bool value)
 {
-    ui->startButton->setVisible(value);
     ui->download->setVisible(value);
     ui->upload->setVisible(value);
     ui->sizeButton->setVisible(value);
@@ -77,51 +82,54 @@ void MainWindow::on_connectButton_clicked()
 void MainWindow::connectUploadSignals(UploadFileTask *task)
 {
     QObject::connect(task, &UploadFileTask::uploadStarted, [this]() {
-        qDebug("uploadStarted");
-        ui->startButton->setVisible(true);
-        ui->startButton->setText("暂停");
-        ui->progressBar->setVisible(true);
-        isUploading = true;
+        uploadStatus = TransStatus::RUNNING;
+
+        ui->uploadPauseResumeButton->setText("暂停");
+        ui->uploadPauseResumeButton->setVisible(true);
+        ui->uploadStopButton->setVisible(true);
+        ui->uploadProgressBar->setValue(0);
+        ui->uploadProgressBar->setVisible(true);
+
         ui->displayingMsg->append("uploadStarted");
     });
 
     QObject::connect(task, &UploadFileTask::uploadSucceeded, [this]() {
-        qDebug("uploadSucceeded");
+        uploadStatus = TransStatus::FREE;
+        uploadEndedUISchedule();
+
         ui->displayingMsg->append("uploadSucceeded");
-        ui->progressBar->setVisible(false);
-        isUploading = false;
-        this->se->listWorkingDir(); //刷新目录
+        QMessageBox::about(this, "上传成功", "上传成功");
+        se->listWorkingDir(); //刷新目录
     });
 
     QObject::connect(
         task, &UploadFileTask::uploadFailedWithMsg,
         [this](std::string errorMsg) {
-            this->uploadTask->stop();
-            ui->progressBar->setVisible(false);
-            isUploading = false;
-            qDebug("uploadFailedWithMsg");
-            qDebug() << errorMsg.data();
-            ui->displayingMsg->append("uploadFailedWithMsg");
-            ui->displayingMsg->append(QString::fromStdString(errorMsg));
+            uploadStatus = TransStatus::FREE;
+            runningUploadTask->stop();
+            uploadEndedUISchedule();
+
             QMessageBox::about(this, "错误",
                                "uploadFailedWithMsg" +
                                    QString::fromStdString(errorMsg));
+            ui->displayingMsg->append("uploadFailedWithMsg");
+            ui->displayingMsg->append(QString::fromStdString(errorMsg));
         });
 
     QObject::connect(task, &UploadFileTask::uploadFailed, [this]() {
-        this->uploadTask->stop();
-        ui->progressBar->setVisible(false);
-        isUploading = false;
-        qDebug("uploadFailed");
+        uploadStatus = TransStatus::FREE;
+        runningUploadTask->stop();
+        uploadEndedUISchedule();
+
         ui->displayingMsg->append("uploadFailed");
         QMessageBox::about(this, "错误", "uploadFailed");
     });
 
     QObject::connect(task, &UploadFileTask::readFileError, [this]() {
-        this->uploadTask->stop();
-        ui->progressBar->setVisible(false);
-        isUploading = false;
-        qDebug("readFileError");
+        uploadStatus = TransStatus::FREE;
+        runningUploadTask->stop();
+        uploadEndedUISchedule();
+
         ui->displayingMsg->append("readFileError");
         QMessageBox::about(this, "错误", "readFileError");
     });
@@ -129,39 +137,39 @@ void MainWindow::connectUploadSignals(UploadFileTask *task)
     QObject::connect(task, &UploadFileTask::uploadPercentage,
                      [this](int percentage) {
                          qDebug() << "percentage: " << percentage << "%";
-                         ui->progressBar->setValue(percentage);
+                         ui->uploadProgressBar->setValue(percentage);
                      });
 }
 
 void MainWindow::connectDownloadSignals(DownloadFileTask *task)
 {
     QObject::connect(task, &DownloadFileTask::downloadStarted, [this]() {
-        qDebug("DownloadStarted");
-        ui->startButton->setVisible(true);
-        ui->startButton->setText("暂停");
-        ui->progressBar->setVisible(true);
-        isDownloading = true;
+        downloadStatus = TransStatus::RUNNING;
+
+        ui->downloadPauseResumeButton->setText("暂停");
+        ui->downloadPauseResumeButton->setVisible(true);
+        ui->downloadStopButton->setVisible(true);
+        ui->downloadProgressBar->setVisible(true);
+        ui->downloadProgressBar->setValue(0);
+
         ui->displayingMsg->append("DownloadStarted");
     });
 
     QObject::connect(task, &DownloadFileTask::downloadSucceed, [this]() {
-        qDebug("DownloadSucceeded");
-        ui->progressBar->setVisible(false);
+        downloadStatus = TransStatus::FREE;
+        downloadEndedUISchedule();
+
         ui->displayingMsg->append("DownloadSucceeded");
-        isDownloading = false;
-        if (!isDownloading)
-            ui->startButton->setVisible(false);
-        this->se->listWorkingDir(); //刷新目录
+        QMessageBox::about(this, "下载成功", "下载成功");
     });
 
     QObject::connect(
         task, &DownloadFileTask::downloadFailedWithMsg,
         [this](std::string errorMsg) {
-            this->downloadTask->stop();
-            ui->progressBar->setVisible(false);
-            isDownloading = false;
-            qDebug("DownloadFailedWithMsg");
-            qDebug() << errorMsg.data();
+            downloadStatus = TransStatus::FREE;
+            runningDownloadTask->stop();
+            downloadEndedUISchedule();
+
             ui->displayingMsg->append("DownloadFailedWithMsg");
             ui->displayingMsg->append(QString::fromStdString(errorMsg));
             QMessageBox::about(this, "错误",
@@ -170,26 +178,25 @@ void MainWindow::connectDownloadSignals(DownloadFileTask *task)
         });
 
     QObject::connect(task, &DownloadFileTask::downloadFailed, [this]() {
-        this->downloadTask->stop();
-        ui->progressBar->setVisible(false);
-        isDownloading = false;
-        qDebug("DownloadFailed");
+        downloadStatus = TransStatus::FREE;
+        runningDownloadTask->stop();
+        downloadEndedUISchedule();
+
         ui->displayingMsg->append("DownloadFailed");
         QMessageBox::about(this, "错误", "DownloadFailed");
     });
 
     QObject::connect(task, &DownloadFileTask::readFileError, [this]() {
-        this->downloadTask->stop();
-        ui->progressBar->setVisible(false);
-        isDownloading = false;
-        qDebug("readFileError");
+        downloadStatus = TransStatus::FREE;
+        runningDownloadTask->stop();
+
         ui->displayingMsg->append("readFileError");
         QMessageBox::about(this, "错误", "readFileError");
     });
 
     QObject::connect(task, &DownloadFileTask::percentSync, [this](int percent) {
         qDebug() << "percentage: " << percent << "%";
-        ui->progressBar->setValue(percent);
+        ui->downloadProgressBar->setValue(percent);
     });
 }
 
@@ -508,6 +515,133 @@ void MainWindow::initConnection(FTPSession *se)
     });
 }
 
+void MainWindow::uploadEndedUISchedule()
+{
+    runningUploadTask.release();
+    popUpload();
+    ui->uploadProgressBar->setVisible(false);
+    ui->uploadPauseResumeButton->setVisible(false);
+    ui->uploadStopButton->setVisible(false);
+    scheduleUploadQueue();
+}
+
+void MainWindow::downloadEndedUISchedule()
+{
+    runningDownloadTask.release();
+    popDownload();
+    ui->downloadProgressBar->setVisible(false);
+    ui->downloadPauseResumeButton->setVisible(false);
+    ui->downloadStopButton->setVisible(false);
+    scheduleDownloadQueue();
+}
+
+void MainWindow::scheduleUploadQueue()
+{
+    if (!uploadQueue.empty() && uploadStatus == TransStatus::FREE)
+    {
+        std::string localFilepath, remoteFilepath;
+        std::tie(localFilepath, remoteFilepath) = uploadQueue.front();
+        runningUploadTask = std::unique_ptr<UploadFileTask>(
+            new UploadFileTask(*se, localFilepath, remoteFilepath));
+        connectUploadSignals(runningUploadTask.get());
+        runningUploadTask->start();
+    }
+}
+
+void MainWindow::scheduleDownloadQueue()
+{
+    if (!downloadQueue.empty() && downloadStatus == TransStatus::FREE)
+    {
+        std::string localFilepath, remoteFilepath;
+        std::tie(localFilepath, remoteFilepath) = downloadQueue.front();
+        runningDownloadTask = std::unique_ptr<DownloadFileTask>(
+            new DownloadFileTask(*se, localFilepath, remoteFilepath));
+        connectDownloadSignals(runningDownloadTask.get());
+        runningDownloadTask->start();
+    }
+}
+
+void MainWindow::pushUpload(const QString &filename,
+                            const std::string &localFilepath,
+                            const std::string &remoteFilepath)
+{
+    uploadListModel.insertRow(uploadListModel.rowCount());
+    QModelIndex index = uploadListModel.index(uploadListModel.rowCount() - 1);
+    uploadListModel.setData(index, filename);
+    uploadQueue.push_back({localFilepath, remoteFilepath});
+}
+
+void MainWindow::pushDownload(const QString &filename,
+                              const std::string &localFilepath,
+                              const std::string &remoteFilepath)
+{
+    downloadListModel.insertRow(downloadListModel.rowCount());
+    QModelIndex index =
+        downloadListModel.index(downloadListModel.rowCount() - 1);
+    downloadListModel.setData(index, filename);
+    downloadQueue.push_back({localFilepath, remoteFilepath});
+}
+
+void MainWindow::popUpload()
+{
+    if (!uploadQueue.empty())
+    {
+        uploadQueue.pop_front();
+        uploadListModel.removeRow(0);
+    }
+}
+
+void MainWindow::popDownload()
+{
+    if (!downloadQueue.empty())
+    {
+        downloadQueue.pop_front();
+        downloadListModel.removeRow(0);
+    }
+}
+
+void MainWindow::on_uploadPauseResumeButton_clicked()
+{
+    if (uploadStatus == TransStatus::RUNNING)
+    {
+        uploadStatus = TransStatus::PAUSE;
+        runningUploadTask->stop();
+        ui->uploadPauseResumeButton->setText("恢复");
+    }
+    else
+    {
+        runningUploadTask->resume();
+    }
+}
+void MainWindow::on_uploadStopButton_clicked()
+{
+    if (uploadStatus == TransStatus::RUNNING)
+        runningUploadTask->stop();
+    uploadStatus = TransStatus::FREE;
+    uploadEndedUISchedule();
+}
+
+void MainWindow::on_downloadPauseResumeButton_clicked()
+{
+    if (downloadStatus == TransStatus::RUNNING)
+    {
+        downloadStatus = TransStatus::PAUSE;
+        runningDownloadTask->stop();
+        ui->downloadPauseResumeButton->setText("恢复");
+    }
+    else
+    {
+        runningDownloadTask->resume();
+    }
+}
+void MainWindow::on_downloadStopButton_clicked()
+{
+    if (downloadStatus == TransStatus::RUNNING)
+        runningDownloadTask->stop();
+    downloadStatus = TransStatus::FREE;
+    downloadEndedUISchedule();
+}
+
 void MainWindow::on_upload_clicked()
 {
     QString curPath = QDir::currentPath();
@@ -519,10 +653,29 @@ void MainWindow::on_upload_clicked()
         std::string remoteFilepath = currentDir + "/" + filename.toStdString();
         qDebug() << "upload local filepath:" << localFilepath;
         qDebug() << "upload remote filepath:" << remoteFilepath.data();
-        uploadTask = std::unique_ptr<UploadFileTask>(new UploadFileTask(
-            *se, localFilepath.toStdString(), remoteFilepath));
-        this->connectUploadSignals(uploadTask.get());
-        uploadTask->start();
+        pushUpload(filename, localFilepath.toStdString(), remoteFilepath);
+        scheduleUploadQueue();
+    }
+    else
+        ui->displayingMsg->append("User did not choose a file.");
+}
+
+void MainWindow::on_download_clicked()
+{
+    QString curPath = QDir::currentPath();
+    QString localFilepath = QFileDialog::getExistingDirectory(
+        this, "选择目录", curPath, QFileDialog::ShowDirsOnly);
+    if (!localFilepath.isEmpty())
+    {
+        QString filename = QString::fromStdString(currentItem);
+        if (filename.length() >= 2 && filename[0] == '.' && filename[1] == '/')
+            filename.remove(0, 2);
+        localFilepath += "/" + filename;
+        std::string remoteFilepath = currentDir + "/" + currentItem;
+        qDebug() << "download local filepath:" << localFilepath;
+        qDebug() << "download remote filepath:" << remoteFilepath.data();
+        pushDownload(filename, localFilepath.toStdString(), remoteFilepath);
+        scheduleDownloadQueue();
     }
     else
         ui->displayingMsg->append("User did not choose a file.");
@@ -607,24 +760,6 @@ void MainWindow::on_deleteButton_clicked()
 
 void MainWindow::on_sizeButton_clicked() { se->getFilesize(currentItem); }
 
-void MainWindow::on_startButton_clicked()
-{
-    if (isUploading)
-    {
-        isUploading = false;
-        uploadTask->stop();
-        this->se->listWorkingDir(); //刷新目录
-        ui->startButton->setText("开始");
-    }
-    else
-    {
-        isUploading = true;
-        uploadTask->resume();
-        ui->startButton->setText("暂停");
-    }
-    // TODO(zhb) 按钮的逻辑
-}
-
 void MainWindow::on_refreshButton_clicked() { se->listWorkingDir(); }
 
 void MainWindow::on_emptyButton_clicked() { ui->displayingMsg->clear(); }
@@ -642,24 +777,4 @@ void MainWindow::on_removeButton_clicked()
     }
     else
         ui->displayingMsg->append("User cancels removing the directory.");
-}
-
-void MainWindow::on_download_clicked()
-{
-    QString curPath = QDir::currentPath();
-    QString localFilepath = QFileDialog::getExistingDirectory(
-        this, "选择目录", curPath, QFileDialog::ShowDirsOnly);
-    if (!localFilepath.isEmpty())
-    {
-        localFilepath.append(QString::fromStdString(currentItem));
-        std::string remoteFilepath = currentDir + "/" + currentItem;
-        qDebug() << "download local filepath:" << localFilepath;
-        qDebug() << "download remote filepath:" << remoteFilepath.data();
-        downloadTask = std::unique_ptr<DownloadFileTask>(new DownloadFileTask(
-            *se, localFilepath.toStdString(), remoteFilepath));
-        this->connectDownloadSignals(downloadTask.get());
-        downloadTask->start();
-    }
-    else
-        ui->displayingMsg->append("User did not choose a file.");
 }

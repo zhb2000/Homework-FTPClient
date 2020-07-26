@@ -186,18 +186,32 @@ namespace ftpclient
         if (isSetStop)
             return;
         std::string errorMsg;
-        auto res = utils::asyncAwait<CmdToServerRet>(
-            requestToDownloadFromServer, session.getControlSock(), isReset,
-            remoteFilepath, errorMsg);
-        if (res == CmdToServerRet::SUCCEEDED)
+        if (isReset)
         {
-            //服务器同意上传文件
-            emit downloadStarted();   //发射 uploadStarted 信号
-            this->downloadFileData(); //开始传输文件内容
+            auto resetRes = utils::asyncAwait<CmdToServerRet>(
+                requestRestFromServer, session.getControlSock(), downloadOffset,
+                errorMsg);
+            if (!isSetStop && resetRes != CmdToServerRet::SUCCEEDED)
+            {
+                if (resetRes == CmdToServerRet::FAILED_WITH_MSG)
+                    emit downloadFailedWithMsg(std::move(errorMsg));
+                else
+                    emit downloadFailed();
+                return;
+            }
         }
-        else if (!isSetStop)
+
+        CmdToServerRet retrRes = utils::asyncAwait<CmdToServerRet>(
+            requestRetrFromFromServer, session.getControlSock(), remoteFilepath,
+            errorMsg);
+        if (!isSetStop)
         {
-            if (res == CmdToServerRet::FAILED_WITH_MSG)
+            if (retrRes == CmdToServerRet::SUCCEEDED)
+            {
+                emit downloadStarted();
+                this->downloadFileData(); //开始传输文件内容
+            }
+            else if (retrRes == CmdToServerRet::FAILED_WITH_MSG)
                 emit downloadFailedWithMsg(std::move(errorMsg));
             else // res == SEND_FAILED || res == RECV_FAILED
                 emit downloadFailed();
@@ -227,13 +241,16 @@ namespace ftpclient
         dataSocket = INVALID_SOCKET;
         isDataConnected = false;
 
-        auto downRes = downFuture.result();
-        if (downRes == DownloadFileDataRes::SUCCEEDED)
-            emit downloadSucceed();
-        else if (downRes == DownloadFileDataRes::READ_FILE_ERROR)
-            emit readFileError();
-        else
-            emit downloadFailed();
+        if (!isSetStop)
+        {
+            auto downRes = downFuture.result();
+            if (downRes == DownloadFileDataRes::SUCCEEDED)
+                emit downloadSucceed();
+            else if (downRes == DownloadFileDataRes::READ_FILE_ERROR)
+                emit readFileError();
+            else
+                emit downloadFailed();
+        }
 
         //关闭控制连接
         session.quit();

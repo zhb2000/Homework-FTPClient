@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>675</width>
-    <height>450</height>
+    <width>670</width>
+    <height>615</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -915,31 +915,13 @@
      </disabled>
     </palette>
    </property>
-   <widget class="QProgressBar" name="progressBar">
-    <property name="geometry">
-     <rect>
-      <x>570</x>
-      <y>20</y>
-      <width>100</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <family>Calibri</family>
-     </font>
-    </property>
-    <property name="value">
-     <number>0</number>
-    </property>
-   </widget>
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
       <x>15</x>
       <y>15</y>
-      <width>270</width>
-      <height>210</height>
+      <width>271</width>
+      <height>201</height>
      </rect>
     </property>
     <property name="title">
@@ -1105,7 +1087,7 @@
      <rect>
       <x>300</x>
       <y>20</y>
-      <width>255</width>
+      <width>251</width>
       <height>370</height>
      </rect>
     </property>
@@ -1124,9 +1106,9 @@
    <widget class="QTextBrowser" name="displayingMsg">
     <property name="geometry">
      <rect>
-      <x>15</x>
+      <x>10</x>
       <y>240</y>
-      <width>270</width>
+      <width>281</width>
       <height>150</height>
      </rect>
     </property>
@@ -1206,24 +1188,6 @@
     </property>
     <property name="text">
      <string>下载</string>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="startButton">
-    <property name="geometry">
-     <rect>
-      <x>570</x>
-      <y>50</y>
-      <width>80</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <family>Calibri</family>
-     </font>
-    </property>
-    <property name="text">
-     <string>开始</string>
     </property>
    </widget>
    <widget class="QPushButton" name="returnButton">
@@ -1319,10 +1283,10 @@
    <widget class="QPushButton" name="emptyButton">
     <property name="geometry">
      <rect>
-      <x>230</x>
-      <y>240</y>
-      <width>54</width>
-      <height>18</height>
+      <x>240</x>
+      <y>220</y>
+      <width>51</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="font">
@@ -1332,7 +1296,137 @@
      </font>
     </property>
     <property name="text">
-     <string>EMPTY</string>
+     <string>清空</string>
+    </property>
+   </widget>
+   <widget class="QListView" name="downloadListView">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>420</y>
+      <width>321</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="editTriggers">
+     <set>QAbstractItemView::NoEditTriggers</set>
+    </property>
+   </widget>
+   <widget class="QListView" name="uploadListView">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>420</y>
+      <width>321</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="editTriggers">
+     <set>QAbstractItemView::NoEditTriggers</set>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="downloadProgressBar">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>540</y>
+      <width>221</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="value">
+     <number>24</number>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="downloadStopButton">
+    <property name="geometry">
+     <rect>
+      <x>289</x>
+      <y>540</y>
+      <width>41</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>停止</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="downloadPauseResumeButton">
+    <property name="geometry">
+     <rect>
+      <x>240</x>
+      <y>540</y>
+      <width>41</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>暂停</string>
+    </property>
+   </widget>
+   <widget class="QProgressBar" name="uploadProgressBar">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>540</y>
+      <width>221</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="value">
+     <number>24</number>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadPauseResumeButton">
+    <property name="geometry">
+     <rect>
+      <x>570</x>
+      <y>540</y>
+      <width>41</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>暂停</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="uploadStopButton">
+    <property name="geometry">
+     <rect>
+      <x>620</x>
+      <y>540</y>
+      <width>41</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>停止</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>400</y>
+      <width>54</width>
+      <height>12</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>下载任务</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>340</x>
+      <y>400</y>
+      <width>54</width>
+      <height>12</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>上传任务</string>
     </property>
    </widget>
   </widget>
@@ -1344,7 +1438,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>675</width>
+     <width>670</width>
      <height>21</height>
     </rect>
    </property>

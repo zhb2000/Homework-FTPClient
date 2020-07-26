@@ -254,26 +254,27 @@ namespace ftpclient
         dataSock = INVALID_SOCKET;
         isDataConnected = false;
 
-        auto upRes = upFuture.result();
-        if (upRes == UploadFileDataRes::SUCCEEDED)
+        if (!isSetStop)
         {
-            // 上传结束，用控制连接接收服务器消息
-            auto recvRes = utils::asyncAwait<RecvMsgAfterUpRes>(
-                recvMsgAfterUpload, session.getControlSock(), errorMsg);
-            if (recvRes == RecvMsgAfterUpRes::SUCCEEDED)
-                emit uploadSucceeded();
-            else if (recvRes == RecvMsgAfterUpRes::FAILED_WITH_MSG)
-                emit uploadFailedWithMsg(std::move(errorMsg));
-            else // recvRes == FAILED
-                emit uploadFailed();
-        }
-        else if (!isSetStop)
-        {
-            if (upRes == UploadFileDataRes::SEND_FAILED)
+            auto upRes = upFuture.result();
+            if (upRes == UploadFileDataRes::SUCCEEDED)
+            {
+                // 上传结束，用控制连接接收服务器消息
+                auto recvRes = utils::asyncAwait<RecvMsgAfterUpRes>(
+                    recvMsgAfterUpload, session.getControlSock(), errorMsg);
+                if (recvRes == RecvMsgAfterUpRes::SUCCEEDED)
+                    emit uploadSucceeded();
+                else if (recvRes == RecvMsgAfterUpRes::FAILED_WITH_MSG)
+                    emit uploadFailedWithMsg(std::move(errorMsg));
+                else // recvRes == FAILED
+                    emit uploadFailed();
+            }
+            else if (upRes == UploadFileDataRes::SEND_FAILED)
                 emit uploadFailed();
             else // upRes == READ_FILE_ERROR
                 emit readFileError();
         }
+
         //关闭控制连接
         session.quit();
     }

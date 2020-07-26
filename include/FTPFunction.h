@@ -140,18 +140,27 @@ namespace ftpclient
                                            std::string &errorMsg);
 
     /**
-     * @brief 向服务器发送 RETR 或 REST 命令，请求上传文件
+     * @brief 向服务器发送 REST 命令，请求下载文件
      * @author zhb
      * @param controlSock 控制连接
-     * @param isReset 是否为 REST
      * @param remoteFilepath 服务器文件路径
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
-    CmdToServerRet
-    requestToDownloadFromServer(SOCKET controlSock, bool isReset,
-                                const std::string &remoteFilepath,
-                                std::string &errorMsg);
+    CmdToServerRet requestRetrFromFromServer(SOCKET controlSock,
+                                             const std::string &remoteFilepath,
+                                             std::string &errorMsg);
+
+    /**
+     * @brief requestRestFromServer
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param offset 偏移量，单位字节
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet requestRestFromServer(SOCKET controlSock, long long offset,
+                                         std::string &errorMsg);
 
     /**
      * @brief 获取服务器上某个文件的大小
