@@ -131,13 +131,27 @@ namespace ftpclient
      * @author zhb
      * @param controlSock 控制连接
      * @param isAppend 是否为 APPE
-     * @param remoteFilename 服务器文件名
+     * @param remoteFilepath 服务器文件路径
      * @param errorMsg 出口参数，来自服务器的错误消息
      * @return 结果状态码
      */
     CmdToServerRet requestToUploadToServer(SOCKET controlSock, bool isAppend,
-                                           const std::string &remoteFilename,
+                                           const std::string &remoteFilepath,
                                            std::string &errorMsg);
+
+    /**
+     * @brief 向服务器发送 RETR 或 REST 命令，请求上传文件
+     * @author zhb
+     * @param controlSock 控制连接
+     * @param isReset 是否为 REST
+     * @param remoteFilepath 服务器文件路径
+     * @param errorMsg 出口参数，来自服务器的错误消息
+     * @return 结果状态码
+     */
+    CmdToServerRet
+    requestToDownloadFromServer(SOCKET controlSock, bool isReset,
+                                const std::string &remoteFilepath,
+                                std::string &errorMsg);
 
     /**
      * @brief 获取服务器上某个文件的大小
@@ -277,6 +291,28 @@ namespace ftpclient
      */
     UploadFileDataRes uploadFileDataToServer(SOCKET dataSock,
                                              std::ifstream &ifs, int &percent);
+
+    enum class DownloadFileDataRes
+    {
+        SUCCEEDED,
+        GET_SIZE_FAILED,
+        RECV_FAILED,
+        READ_FILE_ERROR
+    };
+
+    /**
+     * @brief 下载服务器文件
+     * @author zhb
+     * @param dataSock 数据连接
+     * @param ofs 文件输出流
+     * @param remoteFilesize 服务器上文件大小
+     * @param percent 出口参数，已下载百分比
+     * @return 结果状态码
+     */
+    DownloadFileDataRes downloadFileDataFromServer(SOCKET dataSock,
+                                                   std::ofstream &ofs,
+                                                   long long remoteFilesize,
+                                                   int &percent);
 
 } // namespace ftpclient
 

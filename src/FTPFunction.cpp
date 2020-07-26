@@ -255,12 +255,29 @@ namespace ftpclient
     }
 
     CmdToServerRet requestToUploadToServer(SOCKET controlSock, bool isAppend,
-                                           const std::string &remoteFilename,
+                                           const std::string &remoteFilepath,
                                            std::string &errorMsg)
     {
         //命令"STOR filename\r\n" 或 "APPE filename\r\n"
         std::string sendCmd =
-            (isAppend ? "APPE " : "STOR ") + remoteFilename + "\r\n";
+            (isAppend ? "APPE " : "STOR ") + remoteFilepath + "\r\n";
+        std::string recvMsg;
+        //正常为"150 Opening data connection."
+        //检查返回码是否为150或125
+        std::regex e(R"(^(150|125)\s+)");
+        auto ret = cmdToServer(controlSock, sendCmd, e, recvMsg);
+        if (ret == CmdToServerRet::FAILED_WITH_MSG)
+            errorMsg = std::move(recvMsg);
+        return ret;
+    }
+
+    CmdToServerRet
+    requestToDownloadFromServer(SOCKET controlSock, bool isReset,
+                                const std::string &remoteFilepath,
+                                std::string &errorMsg)
+    {
+        std::string sendCmd =
+            (isReset ? "REST " : "RETR ") + remoteFilepath + "\r\n";
         std::string recvMsg;
         //正常为"150 Opening data connection."
         //检查返回码是否为150或125
@@ -457,7 +474,6 @@ namespace ftpclient
         long long totalSend = ifs.tellg(); //已发送的字节总数
         const int sendBufLen = 1024;
         unique_ptr<char[]> sendBuffer(new char[sendBufLen]);
-        std::string recvMsg;
         int iResult;
         //开始上传文件
         while (!ifs.eof())
@@ -475,6 +491,35 @@ namespace ftpclient
         }
 
         return UploadFileDataRes::SUCCEEDED;
+    }
+
+    DownloadFileDataRes downloadFileDataFromServer(SOCKET dataSock,
+                                                   std::ofstream &ofs,
+                                                   long long remoteFilesize,
+                                                   int &percent)
+    {
+        if (!ofs.is_open())
+            return DownloadFileDataRes::READ_FILE_ERROR;
+        long long totalRecv = ofs.tellp(); //已接收的字节总数
+        const int recvBufLen = 1024;
+        unique_ptr<char[]> recvBuffer(new char[recvBufLen]);
+        int iResult;
+        while (true)
+        {
+            memset(recvBuffer.get(), 0, recvBufLen);
+            iResult = recv(dataSock, recvBuffer.get(), recvBufLen, 0);
+            if (iResult > 0)
+            {
+                totalRecv += iResult;
+                ofs.write(recvBuffer.get(), iResult);
+                percent = int(totalRecv * 100 / remoteFilesize);
+            }
+            else if (iResult == 0)
+                break;
+            else
+                return DownloadFileDataRes::RECV_FAILED;
+        }
+        return DownloadFileDataRes::SUCCEEDED;
     }
 
 } // namespace ftpclient

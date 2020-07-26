@@ -1,6 +1,6 @@
 #include "../include/mainwindow.h"
-#include "../include/UploadFileTask.h"
 #include "../include/DownloadFileTask.h"
+#include "../include/UploadFileTask.h"
 #include "ui_mainwindow.h"
 #include <QFileDialog>
 #include <QFuture>
@@ -9,6 +9,8 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QtDebug>
 #include <iostream>
+
+//#define SET_UI_FONT
 
 using namespace std;
 using namespace ftpclient;
@@ -22,44 +24,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->progressBar->setVisible(false);
     hideFTPFunction(false);
-
-//    //setFont
-//    //If you have any problems with interface font,
-//    //just uncomment this.
-//    QFont font1;
-//    font1.setFamily("Calibri");
-//    font1.setPixelSize(12);
-//    ui->password->setFont(font1);
-//    ui->hostAddress->setFont(font1);
-//    ui->username->setFont(font1);
-
-//    QFont font2;
-//    font2.setFamily("Calibri");
-//    font2.setPixelSize(10);
-//    ui->dir->setFont(font2);
-//    ui->displayingMsg->setFont(font2);
-//    ui->upload->setFont(font2);
-//    ui->startButton->setFont(font2);
-//    ui->download->setFont(font2);
-//    ui->upload->setFont(font2);
-//    ui->sizeButton->setFont(font2);
-//    ui->deleteButton->setFont(font2);
-//    ui->newDirButton->setFont(font2);
-//    ui->renameButton->setFont(font2);
-//    ui->transferModeButton->setFont(font2);
-//    ui->returnButton->setFont(font2);
-//    ui->refreshButton->setFont(font2);
-//    ui->removeButton->setFont(font2);
-
-//    QFont font3;
-//    font3.setFamily("Calibri");
-//    font3.setPixelSize(20);
-//    ui->connectButton->setFont(font3);
-
-//    QFont font4;
-//    font4.setFamily("Calibri");
-//    font4.setPixelSize(8);
-//    ui->emptyButton->setFont(font4);
 
     // initialize listView
     ui->dir->setModel(qml.get());
@@ -116,37 +80,38 @@ void MainWindow::connectUploadSignals(UploadFileTask *task)
         qDebug("uploadStarted");
         ui->startButton->setVisible(true);
         ui->startButton->setText("暂停");
-        ui->progressBar->setTextVisible(true);
+        ui->progressBar->setVisible(true);
         isUploading = true;
-        uploadCount++;
         ui->displayingMsg->append("uploadStarted");
     });
 
     QObject::connect(task, &UploadFileTask::uploadSucceeded, [this]() {
         qDebug("uploadSucceeded");
         ui->displayingMsg->append("uploadSucceeded");
-        uploadCount--;
-        if (uploadCount <= 0)
-            isUploading = false;
-        if (!isUploading)
-            ui->startButton->setVisible(false);
+        ui->progressBar->setVisible(false);
+        isUploading = false;
         this->se->listWorkingDir(); //刷新目录
     });
 
-    QObject::connect(task, &UploadFileTask::uploadFailedWithMsg,
-                     [this](std::string errorMsg) {
-                         this->uploadTask->stop();
-                         qDebug("uploadFailedWithMsg");
-                         qDebug() << errorMsg.data();
-                         ui->displayingMsg->append("uploadFailedWithMsg");
-                         ui->displayingMsg->append(
-                             QString::fromStdString(errorMsg));
-                         QMessageBox::about(this, "错误", "uploadFailedWithMsg"
-                                                        + QString::fromStdString(errorMsg));
-                     });
+    QObject::connect(
+        task, &UploadFileTask::uploadFailedWithMsg,
+        [this](std::string errorMsg) {
+            this->uploadTask->stop();
+            ui->progressBar->setVisible(false);
+            isUploading = false;
+            qDebug("uploadFailedWithMsg");
+            qDebug() << errorMsg.data();
+            ui->displayingMsg->append("uploadFailedWithMsg");
+            ui->displayingMsg->append(QString::fromStdString(errorMsg));
+            QMessageBox::about(this, "错误",
+                               "uploadFailedWithMsg" +
+                                   QString::fromStdString(errorMsg));
+        });
 
     QObject::connect(task, &UploadFileTask::uploadFailed, [this]() {
         this->uploadTask->stop();
+        ui->progressBar->setVisible(false);
+        isUploading = false;
         qDebug("uploadFailed");
         ui->displayingMsg->append("uploadFailed");
         QMessageBox::about(this, "错误", "uploadFailed");
@@ -154,6 +119,8 @@ void MainWindow::connectUploadSignals(UploadFileTask *task)
 
     QObject::connect(task, &UploadFileTask::readFileError, [this]() {
         this->uploadTask->stop();
+        ui->progressBar->setVisible(false);
+        isUploading = false;
         qDebug("readFileError");
         ui->displayingMsg->append("readFileError");
         QMessageBox::about(this, "错误", "readFileError");
@@ -162,7 +129,7 @@ void MainWindow::connectUploadSignals(UploadFileTask *task)
     QObject::connect(task, &UploadFileTask::uploadPercentage,
                      [this](int percentage) {
                          qDebug() << "percentage: " << percentage << "%";
-                         ui->progressBar->setValue(percentage / uploadCount);
+                         ui->progressBar->setValue(percentage);
                      });
 }
 
@@ -172,37 +139,40 @@ void MainWindow::connectDownloadSignals(DownloadFileTask *task)
         qDebug("DownloadStarted");
         ui->startButton->setVisible(true);
         ui->startButton->setText("暂停");
-        ui->progressBar->setTextVisible(true);
+        ui->progressBar->setVisible(true);
         isDownloading = true;
-        downloadCount++;
         ui->displayingMsg->append("DownloadStarted");
     });
 
     QObject::connect(task, &DownloadFileTask::downloadSucceed, [this]() {
         qDebug("DownloadSucceeded");
+        ui->progressBar->setVisible(false);
         ui->displayingMsg->append("DownloadSucceeded");
-        downloadCount--;
-        if (downloadCount <= 0)
-            isDownloading = false;
+        isDownloading = false;
         if (!isDownloading)
             ui->startButton->setVisible(false);
         this->se->listWorkingDir(); //刷新目录
     });
 
-    QObject::connect(task, &DownloadFileTask::downloadFailedWithMsg,
-                     [this](std::string errorMsg) {
-                         this->downloadTask->stop();
-                         qDebug("DownloadFailedWithMsg");
-                         qDebug() << errorMsg.data();
-                         ui->displayingMsg->append("DownloadFailedWithMsg");
-                         ui->displayingMsg->append(
-                             QString::fromStdString(errorMsg));
-                         QMessageBox::about(this, "错误", "DownloadFailedWithMsg"
-                                                        + QString::fromStdString(errorMsg));
-                     });
+    QObject::connect(
+        task, &DownloadFileTask::downloadFailedWithMsg,
+        [this](std::string errorMsg) {
+            this->downloadTask->stop();
+            ui->progressBar->setVisible(false);
+            isDownloading = false;
+            qDebug("DownloadFailedWithMsg");
+            qDebug() << errorMsg.data();
+            ui->displayingMsg->append("DownloadFailedWithMsg");
+            ui->displayingMsg->append(QString::fromStdString(errorMsg));
+            QMessageBox::about(this, "错误",
+                               "DownloadFailedWithMsg" +
+                                   QString::fromStdString(errorMsg));
+        });
 
     QObject::connect(task, &DownloadFileTask::downloadFailed, [this]() {
         this->downloadTask->stop();
+        ui->progressBar->setVisible(false);
+        isDownloading = false;
         qDebug("DownloadFailed");
         ui->displayingMsg->append("DownloadFailed");
         QMessageBox::about(this, "错误", "DownloadFailed");
@@ -210,21 +180,21 @@ void MainWindow::connectDownloadSignals(DownloadFileTask *task)
 
     QObject::connect(task, &DownloadFileTask::readFileError, [this]() {
         this->downloadTask->stop();
+        ui->progressBar->setVisible(false);
+        isDownloading = false;
         qDebug("readFileError");
         ui->displayingMsg->append("readFileError");
         QMessageBox::about(this, "错误", "readFileError");
     });
 
-    QObject::connect(task, &DownloadFileTask::percentSync,
-                     [this](int percent) {
-                         qDebug() << "percentage: " << percent << "%";
-                         ui->progressBar->setValue(percent / downloadCount);
-                     });
+    QObject::connect(task, &DownloadFileTask::percentSync, [this](int percent) {
+        qDebug() << "percentage: " << percent << "%";
+        ui->progressBar->setValue(percent);
+    });
 }
 
 void MainWindow::initConnection(FTPSession *se)
 {
-    //修改 lambda 捕获变量的方式，否则会 UB
     QObject::connect(se, &FTPSession::recvFailed, [this]() {
         qDebug() << "recvFailed";
         ui->displayingMsg->append("recvFailed");
@@ -292,8 +262,9 @@ void MainWindow::initConnection(FTPSession *se)
             temp.append(errorMsg);
             ui->displayingMsg->append("loginFailedWithMsg");
             ui->displayingMsg->append(QString::fromStdString(temp));
-            QMessageBox::about(this, "错误", "loginFailedWithMsg: "
-                                           + QString::fromStdString(temp));
+            QMessageBox::about(this, "错误",
+                               "loginFailedWithMsg: " +
+                                   QString::fromStdString(temp));
         });
 
     QObject::connect(se, &FTPSession::loginFailed, [this]() {
@@ -307,9 +278,9 @@ void MainWindow::initConnection(FTPSession *se)
         se, &FTPSession::getFilesizeSucceeded, [this](long long size) {
             qDebug() << "file size: " << size;
             string temp = "file size: ";
-            temp = temp + to_string(size);
+            temp = temp + to_string(size) + " Byte";
             ui->displayingMsg->append(QString::fromStdString(temp));
-            QMessageBox::about(this, "错误", QString::fromStdString(temp));
+            QMessageBox::about(this, "文件大小", QString::fromStdString(temp));
         });
 
     QObject::connect(
@@ -361,7 +332,7 @@ void MainWindow::initConnection(FTPSession *se)
         se, &FTPSession::changeDirFailedWithMsg, [this](std::string msg) {
             qDebug("changeDirFailedWithMsg");
             qDebug() << "msg: " << msg.data();
-            qDebug()<< currentDir.data();
+            qDebug() << currentDir.data();
             ui->displayingMsg->append("changeDirFailedWithMsg");
             string temp = "msg: ";
             temp.append(msg);
@@ -371,7 +342,7 @@ void MainWindow::initConnection(FTPSession *se)
 
     QObject::connect(se, &FTPSession::changeDirFailed, [this]() {
         qDebug("changeDirFailed");
-        qDebug()<< currentDir.data();
+        qDebug() << currentDir.data();
         ui->displayingMsg->append("changeDirFailed");
         QMessageBox::about(this, "错误", "changeDirFailed");
     });
@@ -398,7 +369,7 @@ void MainWindow::initConnection(FTPSession *se)
         });
 
     QObject::connect(se, &FTPSession::setTransferModeFailed, [this]() {
-        qDebug()<< "setTransferModeFailed";
+        qDebug() << "setTransferModeFailed";
         ui->displayingMsg->append("setTransferModeFailed");
         QMessageBox::about(this, "错误", "setTransferModeFailed");
     });
@@ -647,21 +618,16 @@ void MainWindow::on_startButton_clicked()
     }
     else
     {
-        isUploading=true;
+        isUploading = true;
         uploadTask->resume();
         ui->startButton->setText("暂停");
     }
+    // TODO(zhb) 按钮的逻辑
 }
 
-void MainWindow::on_refreshButton_clicked()
-{
-    se->listWorkingDir();
-}
+void MainWindow::on_refreshButton_clicked() { se->listWorkingDir(); }
 
-void MainWindow::on_emptyButton_clicked()
-{
-    ui->displayingMsg->clear();
-}
+void MainWindow::on_emptyButton_clicked() { ui->displayingMsg->clear(); }
 
 void MainWindow::on_removeButton_clicked()
 {

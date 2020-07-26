@@ -3,8 +3,8 @@
 
 #include "../include/FTPSession.h"
 #include <QObject>
-#include <fstream>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 
 namespace ftpclient
@@ -20,7 +20,6 @@ namespace ftpclient
     {
         Q_OBJECT
     public:
-
         /**
          * @brief DownloadFileTask 构造函数
          * @author zyc
@@ -49,18 +48,6 @@ namespace ftpclient
         void start();
 
         /**
-         * @brief 下载前的准备工作，进入被动模式
-         * @author zyc
-         */
-        void prepare();
-
-        /**
-         * @brief 退出下载
-         * @author zyc
-         */
-        void quit();
-
-        /**
          * @brief 继续下载
          * @author zyc
          */
@@ -71,18 +58,6 @@ namespace ftpclient
          * @author zyc
          */
         void stop();
-
-        /**
-         * @brief 连接信号
-         * @author zyc
-         */
-        void connectSignals();
-
-        /**
-         * @brief 获取已下载文件的大小
-         * @author zyc
-         */
-        void hasDownloaded();
 
     signals:
 
@@ -119,44 +94,60 @@ namespace ftpclient
         void downloadSucceed();
 
     private:
-
         /**
-         * @brief 发送命令
-         * @param cmd 发送命令
+         * @brief 连接信号
          * @author zyc
          */
-        void sendCmd(std::string cmd);
+        void connectSignals();
+
+        /**
+         * @brief 进入被动模式
+         * @author zyc
+         */
+        void enterPassiveMode();
 
         /**
          * @brief 数据套接字连接
          * @author zyc
+         * @param hostname 主机名
+         * @param port 端口号
          */
-        void dataSocketConnect();
+        void dataSocketConnect(const std::string &hostname, int port);
 
+        /**
+         * @brief 发送 RETR 或 REST 命令请求下载
+         */
+        void downloadRequest();
+
+        /**
+         * @brief 退出下载
+         * @author zyc
+         */
+        void quit();
+
+        //额外建立的控制连接
         FTPSession session;
-
+        //本地文件路径
         std::string localFilepath;
+        //服务器文件路径
         std::string remoteFilepath;
-
+        //文件输出流
+        std::ofstream ofs;
+        //若 socket 未创建，则为 INVALID_SOCKET
         SOCKET dataSocket;
-        SOCKET controlSocket;
+        //数据连接是否建立
+        bool isDataConnected;
+        // stop()是否被调用
+        bool isSetStop;
+        //是否为续传
+        bool isReset;
+        //服务器上文件的大小
+        long long remoteFilesize;
+        long long downloadOffset = 0;
 
-        std::string filename;
-
-        bool isStop=false;
-
-        const int SENDTIMEOUT=3000;
-        const int RECVTIMEOUT=3000;
-
-        const int DATABUFFERLEN=1024;
-
-        long long downloadOffset=0;
-        long long filesize=0;
-
-        int dataPort=0;
-
-        char *dataBuffer=new char [DATABUFFERLEN];
-     };
+        static const int SENDTIMEOUT = 3000;
+        static const int RECVTIMEOUT = 3000;
+    };
 
 } // namespace ftpclient
 

@@ -141,7 +141,7 @@ namespace ftpclient
     {
         isSetStop = true;
         utils::asyncAwait([this]() {
-            std::string sendCmd = "ABOR STOR\r\n";
+            std::string sendCmd = "ABOR\r\n";
             send(session.getControlSock(), sendCmd.c_str(), sendCmd.length(),
                  0);
             std::string recvMsg;
@@ -235,8 +235,10 @@ namespace ftpclient
     {
         std::string errorMsg;
         int percent = 0, lastPercent = 0;
-        QFuture<UploadFileDataRes> upFuture = QtConcurrent::run(
-            [&]() { return uploadFileDataToServer(dataSock, ifs, percent); });
+        QFuture<UploadFileDataRes> upFuture =
+            QtConcurrent::run([this, &percent]() {
+                return uploadFileDataToServer(dataSock, ifs, percent);
+            });
         while (!upFuture.isFinished())
         {
             QApplication::processEvents();

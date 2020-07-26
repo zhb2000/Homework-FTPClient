@@ -1,9 +1,9 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "../include/DownloadFileTask.h"
 #include "../include/FTPSession.h"
 #include "../include/UploadFileTask.h"
-#include "../include/DownloadFileTask.h"
 #include <QFuture>
 #include <QMainWindow>
 #include <QtConcurrent/QtConcurrent>
@@ -91,10 +91,8 @@ private:
     Ui::MainWindow *ui;
 
     //这里使用QStringListModel来初始化ListView
-    // QStringListModel *qml;
     std::unique_ptr<QStringListModel> qml;
 
-    // isConnected 改名 isLogin避免歧义
     bool isLogin = false;
     bool isBinary = true;
     bool isUploading = false;
@@ -109,11 +107,10 @@ private:
     std::string currentItem;
 
     //记录此时正在上传和下载的个数
-    int uploadCount = 0;
+    // int uploadCount = 0;
     int downloadCount = 0;
     long long downloadFileOffset = 0;
 
-    // ftpclient::UploadFileTask *uploadTask = nullptr;
     std::unique_ptr<ftpclient::UploadFileTask> uploadTask;
     std::unique_ptr<ftpclient::DownloadFileTask> downloadTask;
 };

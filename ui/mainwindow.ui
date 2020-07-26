@@ -19,18 +19,6 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
-  <property name="minimumSize">
-   <size>
-    <width>675</width>
-    <height>450</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>675</width>
-    <height>450</height>
-   </size>
-  </property>
   <property name="palette">
    <palette>
     <active>
@@ -1357,7 +1345,7 @@
      <x>0</x>
      <y>0</y>
      <width>675</width>
-     <height>20</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFTP">
