@@ -130,6 +130,10 @@ namespace ftpclient
          */
         void uploadFileData();
 
+        /**
+         * @brief 连接 FTPSession 对象的信号
+         * @author zhb
+         */
         void connectSessionSignals();
 
         /**
