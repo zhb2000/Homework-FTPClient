@@ -1,15 +1,13 @@
 #include "../include/mainwindow.h"
 #include <QApplication>
 
-void test_z();
-
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     MainWindow w;
     w.show();
+    w.setWindowIcon(QIcon(":/FTPicon.ico"));
 
-    test_z();
 
     return a.exec();
 }

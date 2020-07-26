@@ -26,7 +26,8 @@ SOURCES += \
     src/mainwindow.cpp \
     src/FTPSession.cpp \
     src/FTPFunction.cpp \
-    src/test_z.cpp
+    src/test_z.cpp \
+    src/DownloadFileTask.cpp
 
 HEADERS += \
     include/ListTask.h \
@@ -36,7 +37,8 @@ HEADERS += \
     include/mainwindow.h \
     include/ScopeGuard.h \
     include/FTPSession.h \
-    include/FTPFunction.h
+    include/FTPFunction.h \
+    include/DownloadFileTask.h
 
 FORMS += \
     ui/mainwindow.ui
@@ -45,3 +47,8 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+DISTFILES +=
+
+RESOURCES += \
+    ui/Resource.qrc
