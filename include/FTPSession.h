@@ -335,6 +335,7 @@ namespace ftpclient
     private:
         /**
          * @brief 在子线程中执行阻塞式函数，结束后发射信号
+         * @author zhb
          * @param func 需要在子线程中运行的阻塞式函数
          * @param succeededSignal 成功信号
          * @param failedWithMsgSignal 失败信号（参数为错误消息）

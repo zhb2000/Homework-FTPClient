@@ -140,7 +140,7 @@ namespace ftpclient
                                            std::string &errorMsg);
 
     /**
-     * @brief 向服务器发送 REST 命令，请求下载文件
+     * @brief 向服务器发送 RETR 命令，请求下载文件
      * @author zhb
      * @param controlSock 控制连接
      * @param remoteFilepath 服务器文件路径
@@ -152,7 +152,7 @@ namespace ftpclient
                                              std::string &errorMsg);
 
     /**
-     * @brief requestRestFromServer
+     * @brief 向服务器发送 REST 命令，请求下载断点续传
      * @author zhb
      * @param controlSock 控制连接
      * @param offset 偏移量，单位字节
@@ -258,6 +258,7 @@ namespace ftpclient
 
     /**
      * @brief 重命名服务器上的文件
+     * @author zhb
      * @param controlSock 控制连接
      * @param oldName 当前文件名
      * @param newName 新文件名
